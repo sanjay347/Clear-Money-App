@@ -173,7 +173,7 @@ export default function UploadScreen() {
       const ruleHits: Map<number, ReturnType<typeof tryRuleCategorize>> = new Map();
       const unknownIndexes: number[] = [];
       for (let i = 0; i < transactions.length; i++) {
-        const hit = tryRuleCategorize(transactions[i].description);
+        const hit = tryRuleCategorize(transactions[i].description, transactions[i].type);
         if (hit) ruleHits.set(i, hit);
         else unknownIndexes.push(i);
       }
