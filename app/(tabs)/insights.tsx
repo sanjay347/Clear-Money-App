@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { compareWithPreviousMonth } from '../../src/lib/monthComparison';
 import { Fonts } from '../../src/components/Typography';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity,
@@ -55,6 +56,8 @@ interface Analytics {
   // Monthly trend
   monthlySpend: { month: string; amount: number }[];
   momChange: number;        // % change current vs previous month
+  momPartial: boolean;      // month in progress: compared with the same days last month
+  recurringTotal: number;   // subscriptions plus other recurring bills
   currentMonth: string;
 
   // Subscriptions
@@ -110,14 +113,19 @@ function computeAnalytics(allTxs: Transaction[], selectedMonth: string): Analyti
   }));
 
   // MoM: selectedMonth vs previous month
-  const prevMonthKey = mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
+  const mom = compareWithPreviousMonth(allDebits, selectedMonth);
   const thisMonthAmt = totalSpent;
-  const lastMonthAmt = sum(allDebits.filter(t => monthOf(t.date) === prevMonthKey).map(t => t.amount));
-  const momChange = lastMonthAmt > 0 ? ((thisMonthAmt - lastMonthAmt) / lastMonthAmt) * 100 : 0;
+  const lastMonthAmt = mom.previous;
+  const momChange = mom.changePct;
+  const vsLabel = mom.partial ? 'at this point last month' : 'last month';
 
   // Subscriptions
-  const subs = debits.filter(t => t.is_subscription || t.is_recurring);
-  const subTotal = sum(subs.map(t => t.amount));
+  // "Subscriptions" are services you chose and can cancel. Rent, utilities and
+  // insurance are recurring too, but lumping them in made subscriptions look
+  // like most of the month's spending.
+  const subs = debits.filter(t => t.is_subscription || t.is_recurring); // all recurring, for the list
+  const recurringTotal = sum(subs.map(t => t.amount));
+  const subTotal = sum(debits.filter(t => t.is_subscription).map(t => t.amount));
   const subPct = totalSpent > 0 ? (subTotal / totalSpent) * 100 : 0;
   const subByMerchant: Record<string, number> = {};
   for (const t of subs) {
@@ -152,8 +160,8 @@ function computeAnalytics(allTxs: Transaction[], selectedMonth: string): Analyti
   if (momChange > 20) {
     alerts.push({
       type: 'danger',
-      message: `Spending spike: ${pct(momChange)} vs last month`,
-      detail: `You spent ${fmt(thisMonthAmt)} this month vs ${fmt(lastMonthAmt)} last month.`,
+      message: `Spending is up ${Math.abs(momChange).toFixed(0)}%`,
+      detail: `You've spent ${fmt(thisMonthAmt)} this month, against ${fmt(lastMonthAmt)} ${vsLabel}.`,
     });
   } else if (momChange > 10) {
     alerts.push({
@@ -164,16 +172,16 @@ function computeAnalytics(allTxs: Transaction[], selectedMonth: string): Analyti
   } else if (momChange < -10) {
     alerts.push({
       type: 'info',
-      message: `Great job! Spending down ${pct(Math.abs(momChange))}`,
-      detail: `You saved ${fmt(lastMonthAmt - thisMonthAmt)} compared to last month.`,
+      message: `Spending is down ${Math.abs(momChange).toFixed(0)}%`,
+      detail: `You've spent ${fmt(lastMonthAmt - thisMonthAmt)} less than ${vsLabel}.`,
     });
   }
 
-  if (subPct > 20) {
+  if (subPct > 10) {
     alerts.push({
       type: 'warning',
-      message: `Subscriptions eat ${subPct.toFixed(0)}% of spending`,
-      detail: `${fmt(subTotal)} in recurring charges. Review if all are still needed.`,
+      message: `Subscriptions are ${subPct.toFixed(0)}% of spending`,
+      detail: `${fmt(subTotal)} in subscriptions this month. Review whether you still use them all.`,
     });
   }
 
@@ -187,7 +195,7 @@ function computeAnalytics(allTxs: Transaction[], selectedMonth: string): Analyti
     alerts.push({
       type: 'info',
       message: `Solid savings rate: ${savingsRate.toFixed(1)}%`,
-      detail: 'You\'re on track. Consider putting excess into an index fund.',
+      detail: 'You\'re keeping more than a fifth of what you earn.',
     });
   }
 
@@ -200,8 +208,8 @@ function computeAnalytics(allTxs: Transaction[], selectedMonth: string): Analyti
   }
 
   return {
-    totalSpent, totalIncome, savingsRate, avgDailySpend, txnCount: debits.length,
-    categories, monthlySpend, momChange, currentMonth: selectedMonth,
+    totalSpent, totalIncome, savingsRate, avgDailySpend, txnCount: txs.length,
+    categories, monthlySpend, momChange, momPartial: mom.partial, recurringTotal, currentMonth: selectedMonth,
     subTotal, subPct, topSubs,
     weekdayAvg, weekendAvg, biggestTx, busiestDOW,
     alerts,
@@ -574,7 +582,7 @@ export default function InsightsScreen() {
                   <Text style={[s.momText, {
                     color: a.momChange > 5 ? '#EF4444' : a.momChange < -5 ? '#3B82F6' : '#9CA3AF',
                   }]}>
-                    {a.momChange >= 0 ? '+' : ''}{a.momChange.toFixed(1)}% vs last month
+                    {a.momChange >= 0 ? '+' : ''}{a.momChange.toFixed(1)}% {a.momPartial ? 'vs same point last month' : 'vs last month'}
                   </Text>
                 </View>
               </SectionCard>
@@ -622,8 +630,8 @@ export default function InsightsScreen() {
             {a.topSubs.length > 0 && (
               <SectionCard isLight={theme === 'light'} title="Recurring Charges" icon={<RefreshCw size={16} color="#3B82F6" />} colors={colors}>
                 <View style={s.subHeader}>
-                  <Text style={[s.subTotal, { color: '#3B82F6' }]}>{fmt(a.subTotal)}</Text>
-                  <Text style={[s.subLabel, { color: colors.textSecondary }]}>/ month in subscriptions</Text>
+                  <Text style={[s.subTotal, { color: '#3B82F6' }]}>{fmt(a.recurringTotal)}</Text>
+                  <Text style={[s.subLabel, { color: colors.textSecondary }]}>in recurring charges this month</Text>
                 </View>
                 <View style={{ gap: 10, marginTop: 12 }}>
                   {a.topSubs.map((sub, i) => (
