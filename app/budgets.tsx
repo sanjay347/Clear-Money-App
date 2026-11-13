@@ -8,8 +8,9 @@ import { Fonts } from '../src/components/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Plus } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import ScreenHeader, { HeaderButton } from '../src/components/ScreenHeader';
 import {
   getBudgets, upsertBudget, deleteBudget, getRollover, Budget,
   getTransactions,
@@ -126,15 +127,14 @@ export default function BudgetsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Budgets</Text>
-        <Pressable onPress={() => setShowAddModal(true)} style={styles.addBtn}>
-          <Plus size={22} color={colors.primary} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Budgets"
+        right={
+          <HeaderButton label="Add budget" onPress={() => setShowAddModal(true)}>
+            <Plus size={24} color={colors.primary} />
+          </HeaderButton>
+        }
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Summary card */}

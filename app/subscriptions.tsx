@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Fonts } from '../src/components/Typography';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import ScreenHeader from '../src/components/ScreenHeader';
 import { getSubscriptions, SubscriptionItem } from '../src/db/transactions';
 import { BANK_LABELS, BankType } from '../src/parsers/index';
 
@@ -47,13 +48,7 @@ export default function SubscriptionsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Subscriptions</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Subscriptions" />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Totals card */}

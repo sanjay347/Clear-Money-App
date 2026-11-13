@@ -4,8 +4,9 @@ import { Fonts } from '../src/components/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import ScreenHeader from '../src/components/ScreenHeader';
 import { getMonthSpendByDay, getTransactionsByDate, DaySpend } from '../src/db/transactions';
 import { Transaction } from '../src/types';
 
@@ -98,13 +99,7 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Cash Flow</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Cash Flow" />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Summary row */}
