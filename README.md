@@ -90,6 +90,8 @@ Text extraction runs on the device and statement contents are never uploaded. Th
 - **Lookups are computed, not generated.** "How much did I spend at Starbucks?" has one right answer, so it is calculated from SQLite in code and is always exact.
 - **Advice comes from the model.** "Should I cancel Netflix?" goes to the fine-tuned Gemma 4, streamed token by token, grounded in a summary computed from your transactions so the figures it quotes are real.
 - Falls back to the computed answer if the model is unavailable
+- Transaction lists ("show my last 10 transactions") are shown as rows, not text
+- Every answer is labelled as calculated from your transactions or written by the model
 - Starter question chips + contextual follow-up suggestions after every answer
 - Dollar amounts highlighted inline in responses
 - **100% on-device** — nothing about your question or your data leaves the phone
@@ -114,6 +116,18 @@ Side-by-side comparison of any two months. Per-category delta badges — green w
 - **No account, no login, no tracking, no analytics**
 - Profile page: *"All data stays on your device. Zero cloud. Zero tracking."*
 - Factory Reset permanently deletes all data + model file
+
+### Design System
+- `src/design/tokens.ts` — spacing, radius and type scales
+- `src/design/categories.ts` — one icon and one colour per spending category
+- `src/design/format.ts` — one set of rules for writing money, dates and merchant names
+- Shared `ScreenHeader`, `CategoryIcon` and `PrivacyBadge` components
+- System tab bar via Expo Router native tabs: Liquid Glass on iOS 26+, and taps that respond while a screen is loading
+- Follows the phone's light or dark setting, with a crossfade when switched in Profile
+
+### Onboarding
+- Says what the one-time model download is and how big (5.3 GB) before starting it, and warns on mobile data
+- Shows download progress in gigabytes and percent, and offers a retry if it fails
 
 ### UX Polish
 - Dark / light theme toggle
@@ -237,6 +251,17 @@ npm install
 ```bash
 npx expo run:ios
 ```
+
+On Xcode 27, `expo run:ios` stops with "Can't determine id of Simulator app" (Expo SDK 54 predates the tool that replaced the Simulator app). Build with Xcode's own tools instead:
+
+```bash
+xcodebuild -workspace ios/ClearMoney.xcworkspace -scheme ClearMoney -configuration Release \
+  -destination 'generic/platform=iOS' -derivedDataPath ios/build/device-release -allowProvisioningUpdates build
+xcrun devicectl device install app --device <your-device-id> \
+  ios/build/device-release/Build/Products/Release-iphoneos/ClearMoney.app
+```
+
+A Release build bundles the JavaScript, so the phone does not need the Mac afterwards.
 
 On first launch the app will download the fine-tuned Gemma 4 GGUF model (~5.3 GB). This is a one-time download. After that the app works fully offline.
 
