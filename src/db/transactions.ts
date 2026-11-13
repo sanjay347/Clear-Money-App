@@ -50,6 +50,12 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   }));
 };
 
+export const getTransactionCount = async (): Promise<number> => {
+  const db = await getDB();
+  const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) as n FROM transactions');
+  return row?.n ?? 0;
+};
+
 export const getTransactionsByMonth = async (monthPrefix: string): Promise<Transaction[]> => {
   const db = await getDB();
   const result = await db.getAllAsync<any>(
@@ -178,6 +184,8 @@ export interface SubscriptionItem {
   last_charged: string;
   bank: string;
   charge_count: number;
+  /** Charges in the calendar month of the most recent charge. 2+ means it was billed twice that month. */
+  latest_month_charges: number;
 }
 
 export const getSubscriptions = async (): Promise<SubscriptionItem[]> => {
@@ -189,8 +197,16 @@ export const getSubscriptions = async (): Promise<SubscriptionItem[]> => {
       MAX(date) as last_charged,
       bank,
       COUNT(*) as charge_count,
-      AVG(amount) as monthly_cost
-    FROM transactions
+      AVG(amount) as monthly_cost,
+      (
+        SELECT COUNT(*) FROM transactions d
+        WHERE d.merchant = t.merchant AND d.is_subscription = 1 AND d.type = 'debit'
+          AND substr(d.date, 1, 7) = (
+            SELECT substr(MAX(m.date), 1, 7) FROM transactions m
+            WHERE m.merchant = t.merchant AND m.is_subscription = 1 AND m.type = 'debit'
+          )
+      ) as latest_month_charges
+    FROM transactions t
     WHERE is_subscription = 1 AND type = 'debit'
     GROUP BY merchant
     ORDER BY monthly_cost DESC

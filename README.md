@@ -30,7 +30,7 @@ We fine-tuned **Gemma 4** on real-world financial transaction data using [Unslot
 → Weights published on [Hugging Face](https://huggingface.co)
 
 ### GGUF Quantisation & llama.cpp Inference
-The fine-tuned model is quantised to **GGUF format** — the compressed binary standard used by llama.cpp. The 4.7 GB file is downloaded once on first launch and runs **real-time inference on an iPhone** with zero internet.
+The fine-tuned model is quantised to **GGUF format** — the compressed binary standard used by llama.cpp. The 5.3 GB file is downloaded once on first launch and runs **real-time inference on an iPhone** with zero internet.
 
 ### Cactus-Style Intelligent Routing
 A two-stage pipeline inspired by [Cactus](https://github.com/cactus-compute/cactus):
@@ -38,6 +38,18 @@ A two-stage pipeline inspired by [Cactus](https://github.com/cactus-compute/cact
 - `batchCategorize` — the fine-tuned model handles everything the rules don't recognise, five descriptions per call
 
 The model only runs on the transactions that need it, which saves time and battery. Model output is validated against the fixed category list before it is stored.
+
+### Measured Accuracy
+
+Categorisation is evaluated on 198 labelled statement lines with the same rules, prompts and parser the app ships ([method and limits](eval/README.md), [full results](eval/RESULTS.md)).
+
+| System | Answered | Accuracy | National brands | Small merchants |
+|---|---|---|---|---|
+| Rules only | 52% | 52% | 94% | 12% |
+| Fine-tuned model only | 100% | 82% | 80% | 84% |
+| **Shipped pipeline (rules, then model)** | 100% | **91%** | 99% | 84% |
+
+The rules are right 99% of the time when they match but cover half the lines; the model covers the rest. Neither stage alone reaches the combined score. The test set is small and hand-written, so treat these as indicative.
 
 ### Statement Parsing
 | Input | Engine |
@@ -120,7 +132,7 @@ Side-by-side comparison of any two months. Per-category delta badges — green w
 | Architecture | New Architecture (RCTNewArchEnabled: true) |
 | AI Model | Gemma 4 (fine-tuned) |
 | Fine-tuning | Unsloth |
-| Model format | GGUF (4.7 GB, 4-bit quantised) |
+| Model format | GGUF (5.3 GB, 4-bit quantised) |
 | Inference | llama.cpp-compatible on-device runtime |
 | Model hosting | Hugging Face |
 | Routing | Cactus-inspired rules-then-model pipeline |
@@ -226,7 +238,7 @@ npm install
 npx expo run:ios
 ```
 
-On first launch the app will download the fine-tuned Gemma 4 GGUF model (~4.7 GB). This is a one-time download. After that the app works fully offline.
+On first launch the app will download the fine-tuned Gemma 4 GGUF model (~5.3 GB). This is a one-time download. After that the app works fully offline.
 
 ### Develop
 

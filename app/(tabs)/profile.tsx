@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Shield, HardDrive, ChevronRight, Moon, Trash2, FileText, Cpu, Lock } from 'lucide-react-native';
 import { Fonts } from '../../src/components/Typography';
-import { clearAllData, getUploads, getUserProfile, UploadRecord } from '../../src/db/transactions';
+import { clearAllData, getTransactionCount, getUploads, getUserProfile, UploadRecord } from '../../src/db/transactions';
 import { useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../../src/components/ThemeContext';
@@ -113,12 +113,15 @@ export default function ProfileScreen() {
     elevation: 5,
   };
   const [uploads, setUploads] = useState<UploadRecord[]>([]);
+  // Counted from the database: summing per-upload counts double-counts re-imported statements.
+  const [totalTransactions, setTotalTransactions] = useState(0);
   const [userName, setUserName] = useState('');
 
   useEffect(() => {
     const load = async () => {
-      const [recs, profile] = await Promise.all([getUploads(), getUserProfile()]);
+      const [recs, profile, count] = await Promise.all([getUploads(), getUserProfile(), getTransactionCount()]);
       setUploads(recs);
+      setTotalTransactions(count);
       if (profile.name) setUserName(profile.name);
     };
     load();
@@ -171,7 +174,6 @@ export default function ProfileScreen() {
     );
   };
 
-  const totalTransactions = uploads.reduce((s, u) => s + u.transaction_count, 0);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
