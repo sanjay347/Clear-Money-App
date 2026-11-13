@@ -5,11 +5,12 @@ import {
   KeyboardAvoidingView, Platform, Animated, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Send, Sparkles, Zap } from 'lucide-react-native';
+import { Send, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { chatAgentStream } from '../../src/gemma/agents/chat';
 import { getTransactions, getUserProfile } from '../../src/db/transactions';
 import { useTheme } from '../../src/components/ThemeContext';
+import PrivacyBadge from '../../src/components/PrivacyBadge';
 import { useFocusEffect } from '@react-navigation/native';
 
 interface Message {
@@ -391,13 +392,10 @@ export default function ChatScreen() {
           </Text>
           <View style={styles.statusRow}>
             <View style={styles.statusDot} />
-            <Text style={styles.statusText}>On-device AI · instant & private</Text>
+            <Text style={styles.statusText}>Knows your statements</Text>
           </View>
         </View>
-        <View style={[styles.onDeviceBadge, { borderColor: 'rgba(59,130,246,0.3)', backgroundColor: 'rgba(59,130,246,0.08)' }]}>
-          <Zap size={10} color="#3B82F6" />
-          <Text style={styles.onDeviceText}>Private</Text>
-        </View>
+        <PrivacyBadge />
       </View>
 
       <ScrollView

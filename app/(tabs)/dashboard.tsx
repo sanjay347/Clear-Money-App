@@ -14,7 +14,6 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import OfflineIndicator from '../../src/components/OfflineIndicator';
 import { DashboardSkeleton } from '../../src/components/Skeleton';
 import InsightCard from '../../src/components/InsightCard';
 import AnimatedNumber from '../../src/components/AnimatedNumber';
@@ -26,6 +25,7 @@ import BillPredictor from '../../src/components/BillPredictor';
 import { getInsights, getTransactions, getBudgets, getRollover, getUserProfile, Budget } from '../../src/db/transactions';
 import { Insight, Transaction } from '../../src/types';
 import { useTheme } from '../../src/components/ThemeContext';
+import PrivacyBadge from '../../src/components/PrivacyBadge';
 import { BANK_LABELS, BankType } from '../../src/parsers/index';
 
 interface BudgetWithSpend extends Budget { spent: number; rollover: number }
@@ -278,7 +278,7 @@ export default function DashboardScreen() {
           <Text style={[styles.headerTitle, { color: colors.text }]}>Dashboard</Text>
           <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{displayMonth}</Text>
         </View>
-        <OfflineIndicator text="on device" />
+        <PrivacyBadge />
       </View>
 
       {/* ── Filter chips ──────────────────────────────────────────────────── */}

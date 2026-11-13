@@ -346,7 +346,7 @@ export default function UploadScreen() {
         <View style={styles.idleWrapper}>
           <View style={styles.mainContent}>
             <Text style={[styles.titleMain, { color: colors.text }]}>Add a statement.</Text>
-            <Text style={[styles.titleSub, { color: colors.textSecondary }]}>Analyzed locally. 🔐</Text>
+            <Text style={[styles.titleSub, { color: colors.textSecondary }]}>Analyzed locally.</Text>
             <View style={styles.privacyBadge}>
               <View style={styles.blueDot} />
               <Text style={styles.privacyText}>Your data never leaves your phone</Text>

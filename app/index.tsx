@@ -510,7 +510,7 @@ export default function IndexScreen() {
             <View style={styles.mainContent}>
               <Text style={styles.titleWhite}>Your finances.</Text>
               <Text style={styles.titleWhite}>Understood.</Text>
-              <Text style={styles.titleGrey}>Privately. 🔐</Text>
+              <Text style={styles.titleGrey}>Privately.</Text>
               <View style={styles.privacyBadge}>
                 <View style={styles.blueDot} />
                 <Text style={styles.privacyText}>Your data never leaves your phone</Text>
