@@ -166,7 +166,9 @@ export default function BudgetsScreen() {
             const spent = spendByCategory[budget.category] || 0;
             const rollover = rolloverByCategory[budget.category] || 0;
             const effective = budget.monthly_limit + rollover;
-            const pct = effective > 0 ? Math.min(spent / effective, 1) : 0;
+            const ratio = effective > 0 ? spent / effective : 0; // can exceed 1 when over budget
+            const pct = Math.min(ratio, 1);                      // bar width only
+            const over = Math.max(spent - effective, 0);
             const bc = barColor(pct);
             // Haptic warning once per budget when it hits 90%+
             if (pct >= 0.9 && !warnedBudgets.current.has(budget.id)) {
@@ -185,7 +187,7 @@ export default function BudgetsScreen() {
                     <View style={[styles.colorDot, { backgroundColor: budget.color }]} />
                     <Text style={[styles.budgetCategory, { color: colors.text }]}>{budget.category}</Text>
                   </View>
-                  <Text style={[styles.budgetPct, { color: bc }]}>{Math.round(pct * 100)}%</Text>
+                  <Text style={[styles.budgetPct, { color: bc }]}>{Math.round(ratio * 100)}%</Text>
                 </View>
 
                 <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
@@ -195,6 +197,7 @@ export default function BudgetsScreen() {
                 <View style={styles.budgetBottom}>
                   <Text style={[styles.budgetSpentLabel, { color: colors.textSecondary }]}>
                     ${spent.toLocaleString('en-US', { minimumFractionDigits: 2 })} spent of ${effective.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {over > 0 ? ` · over by $${over.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''}
                   </Text>
                   {rollover > 0 && (
                     <Text style={[styles.rolloverLabel, { color: colors.primary }]}>
