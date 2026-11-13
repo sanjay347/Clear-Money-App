@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { compareWithPreviousMonth, comparisonLabel } from '../../src/lib/monthComparison';
 import { Fonts } from '../../src/components/Typography';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
@@ -173,8 +174,12 @@ export default function DashboardScreen() {
   const prevTxs   = allTxs.filter(t =>
     t.date.startsWith(prevMonth) && (bankFilter === 'all' || t.bank === bankFilter)
   );
-  const prevSpent = prevTxs.filter(t => t.type === 'debit').reduce((s, t) => s + t.amount, 0);
-  const pctChange = prevSpent > 0 ? ((totalSpent - prevSpent) / prevSpent) * 100 : 0;
+  // A month still in progress is compared with the same days of the month before.
+  const mom = compareWithPreviousMonth(
+    [...debits, ...prevTxs.filter(t => t.type === 'debit')],
+    latestMonth || '0000-00',
+  );
+  const pctChange = mom.changePct;
 
   // Month label
   const displayMonth = latestMonth
@@ -335,7 +340,7 @@ export default function DashboardScreen() {
                   ? <TrendingUp size={14} color={colors.danger} />
                   : <TrendingDown size={14} color={colors.primary} />}
                 <Text style={[styles.changeText, { color: pctChange > 0 ? colors.danger : colors.primary }]}>
-                  {Math.abs(pctChange).toFixed(1)}% vs last month
+                  {Math.abs(pctChange).toFixed(1)}% {comparisonLabel(mom)}
                 </Text>
               </View>
             </View>
@@ -497,7 +502,8 @@ export default function DashboardScreen() {
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, card]}>
               {budgetsWithSpend.slice(0, 3).map((b, i) => {
                 const eff = b.monthly_limit + b.rollover;
-                const pct = eff > 0 ? Math.min(b.spent / eff, 1) : 0;
+                const ratio = eff > 0 ? b.spent / eff : 0; // can exceed 1 when over budget
+                const pct = Math.min(ratio, 1);            // bar width only
                 const bc  = pct >= 0.9 ? colors.danger : pct >= 0.7 ? '#F59E0B' : colors.primary;
                 return (
                   <View key={b.id} style={[styles.budgetRow, {
@@ -509,7 +515,7 @@ export default function DashboardScreen() {
                         <View style={[styles.colorDot, { backgroundColor: b.color }]} />
                         <Text style={[styles.catName, { color: colors.text }]}>{b.category}</Text>
                       </View>
-                      <Text style={[styles.catPct, { color: bc }]}>{Math.round(pct * 100)}%</Text>
+                      <Text style={[styles.catPct, { color: bc }]}>{Math.round(ratio * 100)}%</Text>
                     </View>
                     <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
                       <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: bc }]} />
