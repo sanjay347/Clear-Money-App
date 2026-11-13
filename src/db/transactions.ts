@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { Transaction, Insight, MonthlySummary } from '../types';
+import { displayMerchant } from '../design/format';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 
@@ -56,7 +57,8 @@ export const getTransactions = async (): Promise<Transaction[]> => {
     transactionCache = result.map(r => ({
       ...r,
       is_subscription: Boolean(r.is_subscription),
-      is_recurring: Boolean(r.is_recurring)
+      is_recurring: Boolean(r.is_recurring),
+      merchant: displayMerchant(r.merchant ?? ''), // older imports stored raw bank text
     }));
   }
   // A copy of the array, so a caller that sorts in place cannot reorder the cache.
@@ -79,7 +81,8 @@ export const getTransactionsByMonth = async (monthPrefix: string): Promise<Trans
   return result.map(r => ({
     ...r,
     is_subscription: Boolean(r.is_subscription),
-    is_recurring: Boolean(r.is_recurring)
+    is_recurring: Boolean(r.is_recurring),
+      merchant: displayMerchant(r.merchant ?? ''), // older imports stored raw bank text
   }));
 };
 
@@ -292,6 +295,7 @@ export const searchTransactions = async (query: string): Promise<Transaction[]> 
     ...r,
     is_subscription: Boolean(r.is_subscription),
     is_recurring: Boolean(r.is_recurring),
+      merchant: displayMerchant(r.merchant ?? ''), // older imports stored raw bank text
   }));
 };
 
@@ -320,5 +324,6 @@ export const getTransactionsByDate = async (date: string): Promise<Transaction[]
     ...r,
     is_subscription: Boolean(r.is_subscription),
     is_recurring: Boolean(r.is_recurring),
+      merchant: displayMerchant(r.merchant ?? ''), // older imports stored raw bank text
   }));
 };

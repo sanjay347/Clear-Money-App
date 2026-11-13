@@ -24,6 +24,7 @@ import {
   getTransactions, insertTransactions, insertInsights, recordUpload,
 } from '../src/db/transactions';
 import { useTheme } from '../src/components/ThemeContext';
+import { displayMerchant } from '../src/design/format';
 import PrivacyBadge from '../src/components/PrivacyBadge';
 import * as Haptics from 'expo-haptics';
 
@@ -197,7 +198,7 @@ export default function UploadScreen() {
         return {
           id: stableId(t.date, t.description, t.amount),
           date: t.date, amount: t.amount, description: t.description,
-          merchant: r?.merchant_clean || t.merchant_clean || t.description,
+          merchant: displayMerchant(r?.merchant_clean || t.merchant_clean || t.description),
           category: r?.category || 'Other',
           subcategory: null,
           is_subscription: !!r?.is_subscription,

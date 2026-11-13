@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import { displayMerchant } from '../src/design/format';
 import ScreenHeader from '../src/components/ScreenHeader';
 import { getSubscriptions, SubscriptionItem } from '../src/db/transactions';
 import { BANK_LABELS, BankType } from '../src/parsers/index';
@@ -87,7 +88,7 @@ export default function SubscriptionsScreen() {
               <View key={i} style={[styles.subCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.subTop}>
                   <View style={styles.subLeft}>
-                    <Text style={[styles.merchantName, { color: colors.text }]}>{sub.merchant}</Text>
+                    <Text style={[styles.merchantName, { color: colors.text }]}>{displayMerchant(sub.merchant)}</Text>
                     <Text style={[styles.categoryText, { color: colors.textSecondary }]}>{sub.category}</Text>
                   </View>
                   <View style={styles.subRight}>
