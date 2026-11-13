@@ -339,13 +339,19 @@ export default function ChatScreen() {
       }
 
       let finalAnswer = '';
+      // Earlier turns give the model context for follow-ups ("what about last month?").
+      const history = messages
+        .filter(m => m.text.trim() && !m.streaming)
+        .slice(1) // skip the canned greeting
+        .map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text }));
+
       await chatAgentStream(text, txs, (partial) => {
         finalAnswer = partial;
         setMessages(prev => prev.map(m =>
           m.id === streamingIdRef.current ? { ...m, text: partial } : m
         ));
         scrollToBottom();
-      });
+      }, { history });
 
       // Attach follow-up suggestions to the completed AI message
       const suggestions = getSuggestions(lastUserMsgRef.current, finalAnswer);
