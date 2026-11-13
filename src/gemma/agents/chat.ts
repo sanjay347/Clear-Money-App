@@ -1,8 +1,5 @@
 import { Transaction } from '../../types';
-import { isAIAvailable } from '../client';
-
-const EXPO_GO_MSG =
-  "The AI chat requires a native build — it can't run in Expo Go.\n\nRun `npx expo run:ios --device` to enable it. Everything else (PDF upload, dashboard, budgets) works fine right now.";
+import { callChatModelStreaming, isAIAvailable, type ChatMessage } from '../client';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -537,7 +534,12 @@ function extractDate(q: string): string | null {
 
 // ─── Main router ──────────────────────────────────────────────────────────────
 
-function analyticsRoute(question: string, txs: Transaction[]): string {
+/**
+ * Answers questions that have one correct, computable answer ("how much did I
+ * spend on food last month?") straight from the transactions. Returns null when
+ * no intent matches, so the caller can hand the question to the model.
+ */
+export function analyticsRoute(question: string, txs: Transaction[]): string | null {
   const q = question.toLowerCase().trim();
 
   // ── Greetings ──────────────────────────────────────────────────────────────
@@ -690,13 +692,91 @@ function analyticsRoute(question: string, txs: Transaction[]): string {
   if (has(q, 'top categor', 'spending categor', 'where is my money', 'where does my money', 'wasting', 'waste', 'how much', 'spending', 'spent'))
     return topSpendingCategories(txs, targetMonth);
 
-  // ── Overview / catch-all ───────────────────────────────────────────────────
-  return overview(txs);
+  // ── Overview ───────────────────────────────────────────────────────────────
+  if (has(q, 'overview', 'summary', 'summarize', 'summarise', 'snapshot', 'how am i doing', 'big picture'))
+    return overview(txs);
+
+  return null;
 }
 
-// ─── Stream helper ────────────────────────────────────────────────────────────
+// ─── Routing: computed answer or model ────────────────────────────────────────
+//
+// Two kinds of question reach the chat:
+//
+//   Lookups  "How much did I spend at Starbucks?"  One right answer. A 4-bit
+//            model summing forty rows in its head gets these wrong, so they are
+//            computed in code and never touch the model.
+//
+//   Advice   "Should I cancel Netflix?"  "How can I save $200 a month?"
+//            No single answer. These go to the on-device model, grounded in a
+//            summary computed here so every figure it quotes is real.
 
-async function streamWords(text: string, onToken: (partial: string) => void): Promise<void> {
+const ADVICE_PATTERN =
+  /\b(should i|shall i|how (can|do|could|should|would) i|what (should|can|could) i|why (am|do|is|are|did) |is it (worth|okay|ok|smart|a good idea)|can i afford|could i afford|advice|advise|recommend|suggest|tips?\b|ways to|help me (save|budget|cut|reduce|plan|spend)|what would you|do you think|am i (spending too|doing|on the right)|plan (for|to))/;
+
+export const isAdviceQuestion = (question: string): boolean =>
+  ADVICE_PATTERN.test(question.toLowerCase());
+
+const MAX_CONTEXT_CHARS = 2800; // ≈ 800 tokens, leaving room in the 4096-token window
+
+/** Compact, fully computed summary handed to the model as its only source of numbers. */
+export function buildFinancialContext(txs: Transaction[]): string {
+  const months = monthsAvailable(txs);
+  const latest = months[months.length - 1];
+  const sections = [
+    overview(txs),
+    latest ? monthSummary(txs, latest) : '',
+    topSpendingCategories(txs, null),
+    topMerchants(txs, null),
+    subscriptions(txs),
+  ].filter(Boolean);
+  return sections.join('\n\n').slice(0, MAX_CONTEXT_CHARS);
+}
+
+export type ChatRoute =
+  | { kind: 'analytics'; answer: string }
+  | { kind: 'model'; context: string; fallback: string };
+
+export function routeChat(question: string, txs: Transaction[]): ChatRoute {
+  const computed = analyticsRoute(question, txs);
+  if (computed !== null && !isAdviceQuestion(question)) return { kind: 'analytics', answer: computed };
+  // If the model is missing or fails, the best computed answer is still shown.
+  return { kind: 'model', context: buildFinancialContext(txs), fallback: computed ?? overview(txs) };
+}
+
+const SYSTEM_PROMPT = `You are a personal money coach inside a private finance app that runs entirely on the user's phone.
+
+Rules:
+- Use only the figures in FINANCIAL DATA. Never invent or estimate a number that is not there.
+- If the data cannot answer the question, say what is missing.
+- Be direct and specific to this user's spending. No generic budgeting lectures.
+- At most three suggestions, each tied to a figure from the data.
+- Under 120 words. Plain text, no markdown headings.
+- Do not recommend specific investments or financial products.`;
+
+export interface ChatTurn { role: 'user' | 'assistant'; content: string }
+
+const MAX_HISTORY_TURNS = 4;
+const MAX_HISTORY_CHARS = 400; // per turn; long computed answers are trimmed
+
+export function buildChatMessages(question: string, context: string, history: ChatTurn[] = []): ChatMessage[] {
+  const recent = history
+    .filter(t => t.content.trim())
+    .slice(-MAX_HISTORY_TURNS)
+    .map(t => ({ role: t.role, content: t.content.slice(0, MAX_HISTORY_CHARS) }));
+  return [
+    { role: 'system', content: `${SYSTEM_PROMPT}\n\nFINANCIAL DATA\n${context}` },
+    ...recent,
+    { role: 'user', content: question },
+  ];
+}
+
+// ─── Reveal animation ─────────────────────────────────────────────────────────
+// Computed answers exist in full before anything is shown. They are revealed
+// word by word so both kinds of answer feel the same in the UI. This is an
+// animation only; model answers stream real tokens.
+
+async function revealWords(text: string, onToken: (partial: string) => void): Promise<void> {
   const words = text.split(' ');
   let built = '';
   for (let i = 0; i < words.length; i++) {
@@ -708,18 +788,46 @@ async function streamWords(text: string, onToken: (partial: string) => void): Pr
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+export type AnswerSource = 'analytics' | 'model';
+
+export interface ChatOptions {
+  history?: ChatTurn[];
+  /** Told which path produced the answer, so the UI can label it. */
+  onSource?: (source: AnswerSource) => void;
+}
+
 export const chatAgentStream = async (
   userMessage: string,
   txs: Transaction[],
-  onToken: (partial: string) => void
+  onToken: (partial: string) => void,
+  options: ChatOptions = {},
 ): Promise<string> => {
-  if (!isAIAvailable()) { onToken(EXPO_GO_MSG); return EXPO_GO_MSG; }
-  const answer = analyticsRoute(userMessage, txs);
-  await streamWords(answer, onToken);
+  const route = routeChat(userMessage, txs);
+
+  if (route.kind === 'model' && isAIAvailable()) {
+    try {
+      const answer = await callChatModelStreaming(
+        buildChatMessages(userMessage, route.context, options.history),
+        onToken,
+        { temperature: 0.4, n_predict: 384 },
+      );
+      if (answer.trim()) {
+        options.onSource?.('model');
+        return answer;
+      }
+    } catch (error) {
+      console.log('[Chat] Model unavailable, using computed answer:', (error as Error)?.message);
+    }
+  }
+
+  const answer = route.kind === 'analytics' ? route.answer : route.fallback;
+  options.onSource?.('analytics');
+  await revealWords(answer, onToken);
   return answer;
 };
 
+/** Non-streaming variant: computed answers only. */
 export const chatAgent = async (userMessage: string, txs: Transaction[]): Promise<string> => {
-  if (!isAIAvailable()) return EXPO_GO_MSG;
-  return analyticsRoute(userMessage, txs);
+  const route = routeChat(userMessage, txs);
+  return route.kind === 'analytics' ? route.answer : route.fallback;
 };
