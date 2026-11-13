@@ -7,7 +7,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { chatAgentStream, type AnswerSource } from '../../src/gemma/agents/chat';
+import { chatAgentStream, type AnswerSource, type TransactionList } from '../../src/gemma/agents/chat';
+import CategoryIcon from '../../src/components/CategoryIcon';
+import { displayMerchant, formatDay, formatMoney } from '../../src/design/format';
 import { getTransactions, getUserProfile } from '../../src/db/transactions';
 import { useTheme } from '../../src/components/ThemeContext';
 import PrivacyBadge from '../../src/components/PrivacyBadge';
@@ -21,6 +23,8 @@ interface Message {
   suggestions?: string[];
   /** Which path produced the answer: computed in code, or written by the model. */
   source?: AnswerSource;
+  /** Set when the answer is a list of transactions. */
+  list?: TransactionList;
 }
 
 const STARTER_QUESTIONS = [
@@ -243,6 +247,27 @@ const MessageBubble = memo(({
         ) : (
           <View style={[styles.bubble, styles.aiBubble, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <RichText text={msg.text} color={colors.text} />
+            {msg.list && !msg.streaming && (
+              <View style={styles.txList}>
+                {msg.list.transactions.map((t, ti) => (
+                  <View
+                    key={t.id}
+                    style={[styles.txListRow, ti > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                  >
+                    <CategoryIcon category={t.category} size={34} />
+                    <View style={styles.txListText}>
+                      <Text style={[styles.txListMerchant, { color: colors.text }]} numberOfLines={1}>{displayMerchant(t.merchant)}</Text>
+                      <Text style={[styles.txListMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {formatDay(t.date)} · {t.category}
+                      </Text>
+                    </View>
+                    <Text style={[styles.txListAmount, { color: t.type === 'credit' ? '#10B981' : colors.text }]}>
+                      {formatMoney(t.type === 'credit' ? t.amount : -t.amount, { sign: true })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
             {msg.streaming && isLast && msg.text.length > 0 && <Cursor />}
           </View>
         )}
@@ -349,6 +374,7 @@ export default function ChatScreen() {
 
       let finalAnswer = '';
       let answerSource: AnswerSource | undefined;
+      let answerList: TransactionList | undefined;
       // Earlier turns give the model context for follow-ups ("what about last month?").
       const history = messages
         .filter(m => m.text.trim() && !m.streaming)
@@ -361,13 +387,13 @@ export default function ChatScreen() {
           m.id === streamingIdRef.current ? { ...m, text: partial } : m
         ));
         scrollToBottom();
-      }, { history, onSource: (source) => { answerSource = source; } });
+      }, { history, onSource: (source) => { answerSource = source; }, onList: (list) => { answerList = list; } });
 
       // Attach follow-up suggestions to the completed AI message
       const suggestions = getSuggestions(lastUserMsgRef.current, finalAnswer);
       setMessages(prev => prev.map(m =>
         m.id === aiMsgId
-          ? { ...m, streaming: false, suggestions, source: answerSource }
+          ? { ...m, streaming: false, suggestions, source: answerSource, list: answerList }
           : m
       ));
     } catch {
@@ -474,7 +500,13 @@ const styles = StyleSheet.create({
   onDeviceText: { fontSize: 11, fontFamily: Fonts.semiBold, color: '#3B82F6', letterSpacing: 0.3 },
 
   chat:         { flex: 1 },
-  chatContent:  { paddingHorizontal: 16, paddingTop: 24 },
+  chatContent:  { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 28 },
+  txList:        { marginTop: 10 },
+  txListRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
+  txListText:    { flex: 1 },
+  txListMerchant:{ fontSize: 15, fontFamily: Fonts.semiBold },
+  txListMeta:    { fontSize: 12, fontFamily: Fonts.regular, marginTop: 1 },
+  txListAmount:  { fontSize: 15, fontFamily: Fonts.bold },
 
   suggestions:  { marginBottom: 32, gap: 10 },
   sourceLabel:  { fontSize: 11, fontFamily: Fonts.medium, marginTop: 5, marginLeft: 4 },

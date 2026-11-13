@@ -34,3 +34,13 @@ export function formatDay(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+/**
+ * A merchant name fit to show: spacing collapsed, and SHOUTING bank text turned
+ * into Title Case. Names that already have lowercase letters are left alone.
+ */
+export function displayMerchant(name: string): string {
+  const tidy = name.replace(/\s+/g, ' ').trim();
+  if (/[a-z]/.test(tidy)) return tidy;
+  return tidy.toLowerCase().replace(/(^|[\s\-/&.*#])([a-z])/g, (_, lead: string, ch: string) => lead + ch.toUpperCase());
+}
