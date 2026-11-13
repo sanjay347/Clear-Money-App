@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
+import { chronologicalChange } from '../src/lib/monthComparison';
 import { useFocusEffect } from '@react-navigation/native';
 import { getTransactions } from '../src/db/transactions';
 import { Transaction } from '../src/types';
@@ -25,8 +26,10 @@ interface CategoryRow {
   category:  string;
   amountA:   number;  // left month
   amountB:   number;  // right month
-  delta:     number;  // B - A
-  deltaPct:  number;  // (B - A) / A * 100
+  from:      number;  // amount in the earlier month
+  to:        number;  // amount in the later month
+  delta:     number;  // later - earlier
+  deltaPct:  number;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -77,15 +80,15 @@ function buildCategoryTotals(txs: Transaction[]): Record<string, number> {
 function buildRows(
   totalsA: Record<string, number>,
   totalsB: Record<string, number>,
+  monthA: string,
+  monthB: string,
 ): CategoryRow[] {
   const allCats = new Set([...Object.keys(totalsA), ...Object.keys(totalsB)]);
   const rows: CategoryRow[] = [];
   for (const cat of allCats) {
     const a = totalsA[cat] || 0;
     const b = totalsB[cat] || 0;
-    const delta = b - a;
-    const deltaPct = a > 0 ? (delta / a) * 100 : b > 0 ? 100 : 0;
-    rows.push({ category: cat, amountA: a, amountB: b, delta, deltaPct });
+    rows.push({ category: cat, amountA: a, amountB: b, ...chronologicalChange(a, b, monthA, monthB) });
   }
   return rows.sort((a, b) => Math.max(b.amountA, b.amountB) - Math.max(a.amountA, a.amountB));
 }
@@ -183,10 +186,10 @@ export default function CompareScreen() {
   const totalIncomeA = txsA.filter(t => t.type === 'credit').reduce((s, t) => s + t.amount, 0);
   const totalIncomeB = txsB.filter(t => t.type === 'credit').reduce((s, t) => s + t.amount, 0);
 
-  const rows = useMemo(() => buildRows(totalsA, totalsB), [totalsA, totalsB]);
+  const rows = useMemo(() => buildRows(totalsA, totalsB, monthA, monthB), [totalsA, totalsB, monthA, monthB]);
 
-  const totalDelta = totalSpentB - totalSpentA;
-  const totalDeltaPct = totalSpentA > 0 ? (totalDelta / totalSpentA) * 100 : 0;
+  // Measured from the earlier month to the later one, so "up" means spending rose.
+  const { delta: totalDelta, deltaPct: totalDeltaPct } = chronologicalChange(totalSpentA, totalSpentB, monthA, monthB);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -323,9 +326,9 @@ export default function CompareScreen() {
                   {/* Amounts + delta */}
                   <View style={cmp.catRight}>
                     <View style={cmp.amtPair}>
-                      <Text style={[cmp.amtA, { color: colors.text }]}>{fmt(row.amountA)}</Text>
+                      <Text style={[cmp.amtA, { color: colors.text }]}>{fmt(row.from)}</Text>
                       <Text style={[cmp.amtSep, { color: colors.border }]}>→</Text>
-                      <Text style={[cmp.amtB, { color: colors.text }]}>{fmt(row.amountB)}</Text>
+                      <Text style={[cmp.amtB, { color: colors.text }]}>{fmt(row.to)}</Text>
                     </View>
                     <DeltaBadge delta={row.delta} deltaPct={row.deltaPct} />
                   </View>
