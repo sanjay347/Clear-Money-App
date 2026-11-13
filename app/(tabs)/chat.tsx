@@ -7,7 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { chatAgentStream } from '../../src/gemma/agents/chat';
+import { chatAgentStream, type AnswerSource } from '../../src/gemma/agents/chat';
 import { getTransactions, getUserProfile } from '../../src/db/transactions';
 import { useTheme } from '../../src/components/ThemeContext';
 import PrivacyBadge from '../../src/components/PrivacyBadge';
@@ -19,6 +19,8 @@ interface Message {
   sender: 'user' | 'ai';
   streaming?: boolean;
   suggestions?: string[];
+  /** Which path produced the answer: computed in code, or written by the model. */
+  source?: AnswerSource;
 }
 
 const STARTER_QUESTIONS = [
@@ -245,6 +247,12 @@ const MessageBubble = memo(({
           </View>
         )}
 
+        {!isUser && !msg.streaming && msg.source && (
+          <Text style={[styles.sourceLabel, { color: colors.textSecondary }]}>
+            {msg.source === 'model' ? 'Written by the on-device model' : 'Calculated from your transactions'}
+          </Text>
+        )}
+
         {/* Follow-up suggestions — show on last completed AI message */}
         {!isUser && !msg.streaming && isLast && msg.suggestions && msg.suggestions.length > 0 && (
           <SuggestionChips suggestions={msg.suggestions} onPress={onSuggestion} colors={colors} chipShadow={chipShadow} />
@@ -293,9 +301,9 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
-      text: "Hey! I've analyzed your statements on this device. Ask me anything — nothing leaves your phone.",
+      text: "I've read your statements on this phone. Ask me anything about your money.",
       sender: 'ai',
-      suggestions: STARTER_QUESTIONS.slice(0, 3),
+      suggestions: STARTER_QUESTIONS,
     },
   ]);
   const [inputText, setInputText]   = useState('');
@@ -340,6 +348,7 @@ export default function ChatScreen() {
       }
 
       let finalAnswer = '';
+      let answerSource: AnswerSource | undefined;
       // Earlier turns give the model context for follow-ups ("what about last month?").
       const history = messages
         .filter(m => m.text.trim() && !m.streaming)
@@ -352,13 +361,13 @@ export default function ChatScreen() {
           m.id === streamingIdRef.current ? { ...m, text: partial } : m
         ));
         scrollToBottom();
-      }, { history });
+      }, { history, onSource: (source) => { answerSource = source; } });
 
       // Attach follow-up suggestions to the completed AI message
       const suggestions = getSuggestions(lastUserMsgRef.current, finalAnswer);
       setMessages(prev => prev.map(m =>
         m.id === aiMsgId
-          ? { ...m, streaming: false, suggestions }
+          ? { ...m, streaming: false, suggestions, source: answerSource }
           : m
       ));
     } catch {
@@ -405,28 +414,6 @@ export default function ChatScreen() {
         keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
       >
-        {/* Starter chips — only when no user message yet */}
-        {messages.length === 1 && (
-          <View style={styles.suggestions}>
-            <Text style={[styles.suggestLabel, { color: colors.textSecondary }]}>ASK ME ANYTHING</Text>
-            {STARTER_QUESTIONS.map((q, i) => (
-              <Pressable
-                key={i}
-                style={({ pressed }) => [
-                  styles.chip,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                  chipShadow,
-                  pressed && { opacity: 0.65, transform: [{ scale: 0.97 }] },
-                ]}
-                onPress={() => sendMessage(q)}
-              >
-                <Text style={[styles.chipText, { color: colors.text }]}>{q}</Text>
-                <Text style={styles.chipArrow}>→</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
         {messages.map((msg, i) => (
           <MessageBubble
             key={msg.id}
@@ -490,7 +477,7 @@ const styles = StyleSheet.create({
   chatContent:  { paddingHorizontal: 16, paddingTop: 24 },
 
   suggestions:  { marginBottom: 32, gap: 10 },
-  suggestLabel: { fontSize: 11, fontFamily: Fonts.bold, letterSpacing: 1.5, marginBottom: 6 },
+  sourceLabel:  { fontSize: 11, fontFamily: Fonts.medium, marginTop: 5, marginLeft: 4 },
   chip:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 18 },
   chipText:     { fontSize: 15, fontFamily: Fonts.regular, flex: 1, lineHeight: 21 },
   chipArrow:    { fontSize: 18, color: '#3B82F6', marginLeft: 10 },
