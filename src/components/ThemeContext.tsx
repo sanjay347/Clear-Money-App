@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Appearance, LayoutAnimation, UIManager, Platform, useColorScheme } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Animated, Appearance, StyleSheet, UIManager, Platform, useColorScheme } from 'react-native';
 import { getUserProfile, saveUserProfile } from '../db/transactions';
 
 if (Platform.OS === 'android') {
@@ -68,17 +68,24 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const theme: Theme = override ?? (system === 'dark' ? 'dark' : 'light');
 
+  // Switching themes re-renders every screen at once, which looked like a flash.
+  // A veil in the NEW theme's background fades in, the colours switch behind it
+  // while nothing is visible, then it fades out.
+  const veil = useRef(new Animated.Value(0)).current;
+  const [veilColor, setVeilColor] = useState(Colors.light.background);
+
   const toggleTheme = () => {
-    LayoutAnimation.configureNext({
-      duration: 280,
-      create: { type: 'easeInEaseOut', property: 'opacity' },
-      update: { type: 'easeInEaseOut' },
-      delete: { type: 'easeInEaseOut', property: 'opacity' },
-    });
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setOverride(next);
-    Appearance.setColorScheme(next);
-    saveUserProfile({ theme: next }).catch(() => {});
+    setVeilColor(Colors[next].background);
+    Animated.timing(veil, { toValue: 1, duration: 160, useNativeDriver: true }).start(() => {
+      setOverride(next);
+      Appearance.setColorScheme(next);
+      saveUserProfile({ theme: next }).catch(() => {});
+      // Give the new colours a frame to paint before revealing them.
+      requestAnimationFrame(() => {
+        Animated.timing(veil, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+      });
+    });
   };
 
   const colors = Colors[theme];
@@ -86,6 +93,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, colors }}>
       {children}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: veilColor, opacity: veil }]}
+      />
     </ThemeContext.Provider>
   );
 };
