@@ -33,7 +33,9 @@ export function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 // Lazy-import so the app doesn't crash on load if the native module is absent
-const STOP_TOKENS = ['<end_of_turn>', '<eos>', '<|im_end|>', '<start_of_turn>'];
+// '<turn|>' and '<|turn>' are Gemma 4's own turn markers. They are listed so
+// generation halts if the model emits them, whichever prompt format is in use.
+const STOP_TOKENS = ['<end_of_turn>', '<eos>', '<|im_end|>', '<start_of_turn>', '<turn|>', '<|turn>'];
 
 async function tryInitLlama(rawPath: string): Promise<LlamaContextLike | null> {
   const { initLlama } = require('llama.rn');
@@ -192,9 +194,10 @@ const cleanOutput = (s: string) => {
 // Build a Gemma 4 prompt from a messages array.
 // Gemma 4 adds a dedicated <start_of_turn>system turn (unlike Gemma 2/3).
 // We do NOT include <bos> — the tokenizer prepends it automatically.
-function buildGemma4Prompt(messages: ChatMessage[]): string {
+export function buildGemma4Prompt(messages: ChatMessage[]): string {
   return messages
-    .map(m => `<start_of_turn>${m.role}\n${m.content}<end_of_turn>`)
+    // Gemma names the assistant role "model"; "assistant" is not a role it was trained on.
+    .map(m => `<start_of_turn>${m.role === 'assistant' ? 'model' : m.role}\n${m.content}<end_of_turn>`)
     .join('\n') + '\n<start_of_turn>model\n';
 }
 
