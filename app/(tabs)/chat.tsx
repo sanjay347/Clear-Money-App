@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Fonts } from '../../src/components/Typography';
-import {
+import { Keyboard,
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
   KeyboardAvoidingView, Platform, Animated, ActivityIndicator,
 } from 'react-native';
@@ -12,6 +12,12 @@ import CategoryIcon from '../../src/components/CategoryIcon';
 import { displayMerchant, formatDay, formatMoney } from '../../src/design/format';
 import { getTransactions, getUserProfile } from '../../src/db/transactions';
 import { useTheme } from '../../src/components/ThemeContext';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { TAB_BAR_SPACE } from '../../src/design/tokens';
+
+// Liquid Glass exists on iOS 26 and later; older systems get a solid card.
+const GLASS = isLiquidGlassAvailable();
+const InputBar: React.ComponentType<any> = GLASS ? GlassView : View;
 import PrivacyBadge from '../../src/components/PrivacyBadge';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -322,6 +328,13 @@ export default function ChatScreen() {
     elevation: 5,
   };
   const insets = useSafeAreaInsets();
+  // The tab bar is hidden while the keyboard is up, so the bar drops to just above the keys.
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardOpen(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [aiName, setAiName]         = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -450,17 +463,22 @@ export default function ChatScreen() {
             chipShadow={chipShadow}
           />
         ))}
-        <View style={{ height: 20 }} />
+        {/* Room for the floating input bar and the tab bar below it */}
+        <View style={{ height: 76 + (keyboardOpen ? 8 : TAB_BAR_SPACE) }} />
       </ScrollView>
 
-      {/* Input bar */}
-      <View style={[
-        styles.inputBar,
-        { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: 12 },
-        inputBarShadow,
-      ]}>
+      {/* Input bar: floats over the conversation. Liquid Glass where the system has it. */}
+      <InputBar
+        {...(GLASS ? { glassEffectStyle: 'regular' as const } : {})}
+        style={[
+          styles.inputBar,
+          { bottom: keyboardOpen ? 8 : TAB_BAR_SPACE - 4 },
+          !GLASS && { backgroundColor: colors.card, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth },
+          !GLASS && inputBarShadow,
+        ]}
+      >
         <TextInput
-          style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+          style={[styles.input, { color: colors.text }, GLASS ? { backgroundColor: 'transparent', borderWidth: 0 } : { backgroundColor: colors.background, borderColor: colors.border }]}
           placeholder="Ask about your finances..."
           placeholderTextColor={colors.textSecondary}
           value={inputText}
@@ -483,7 +501,7 @@ export default function ChatScreen() {
             : <Send size={17} color={canSend ? '#FFFFFF' : colors.textSecondary} />
           }
         </Pressable>
-      </View>
+      </InputBar>
     </KeyboardAvoidingView>
   );
 }
@@ -515,7 +533,7 @@ const styles = StyleSheet.create({
   chipArrow:    { fontSize: 18, color: '#3B82F6', marginLeft: 10 },
 
   msgWrapper:   { flexDirection: 'row', marginBottom: 14, alignItems: 'flex-end' },
-  msgLeft:      { justifyContent: 'flex-start' },
+  msgLeft:      { justifyContent: 'flex-start', alignItems: 'flex-start' }, // avatar beside the bubble, not the chips under it
   msgRight:     { justifyContent: 'flex-end' },
   bubbleCol:    { flex: 1 },
   smallAvatar:  { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 8, marginBottom: 2, flexShrink: 0 },
@@ -524,7 +542,7 @@ const styles = StyleSheet.create({
   aiBubble:     { borderBottomLeftRadius: 6, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
   userText:     { color: '#FFFFFF', fontSize: 15, fontFamily: Fonts.regular, lineHeight: 23 },
 
-  inputBar:     { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, alignItems: 'flex-end', gap: 10 },
+  inputBar:     { position: 'absolute', left: 12, right: 12, flexDirection: 'row', padding: 8, borderRadius: 30, alignItems: 'flex-end', gap: 8, overflow: 'hidden' },
   input:        { flex: 1, borderRadius: 24, paddingHorizontal: 18, paddingTop: 13, paddingBottom: 13, fontSize: 15, fontFamily: Fonts.regular, maxHeight: 110, borderWidth: 1 },
   sendBtn:      { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
 });

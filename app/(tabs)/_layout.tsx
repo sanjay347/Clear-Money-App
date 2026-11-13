@@ -12,9 +12,8 @@ import { getUserProfile } from '../../src/db/transactions';
  * two were dropped. A native bar responds immediately whatever JavaScript is
  * doing, and on iOS 26 and later it is drawn in Liquid Glass with no extra work.
  *
- * "Add" uses the search role, which iOS places apart from the other tabs as its
- * own round button: the same position the old centre "+" had, in the system's
- * own style.
+ * "Add" is an ordinary fifth tab. Giving it the search role makes iOS draw it as
+ * a separate round button, but iOS then also relabels it "Search".
  */
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -42,7 +41,7 @@ export default function TabLayout() {
         <Icon sf={{ default: 'person', selected: 'person.fill' }} />
         <Label>Profile</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="add" role="search">
+      <NativeTabs.Trigger name="add">
         <Icon sf="plus" />
         <Label>Add</Label>
       </NativeTabs.Trigger>
