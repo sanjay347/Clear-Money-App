@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Animated, Appearance, StyleSheet, UIManager, Platform, useColorScheme } from 'react-native';
+import { Animated, Appearance, Easing, Image, StyleSheet, UIManager, Platform, View, useColorScheme } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
 import { getUserProfile, saveUserProfile } from '../db/transactions';
 
 if (Platform.OS === 'android') {
@@ -68,35 +69,65 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const theme: Theme = override ?? (system === 'dark' ? 'dark' : 'light');
 
-  // Switching themes re-renders every screen at once, which looked like a flash.
-  // A veil in the NEW theme's background fades in, the colours switch behind it
-  // while nothing is visible, then it fades out.
-  const veil = useRef(new Animated.Value(0)).current;
-  const [veilColor, setVeilColor] = useState(Colors.light.background);
+  // Crossfade. A plain colour fade hid the whole screen for a moment, which read
+  // as a blink. Instead: take a picture of the screen in the OLD theme, lay it
+  // over everything, switch the colours underneath, then fade the picture out.
+  // The old screen dissolves into the new one, tab bar and all.
+  const rootRef = useRef<View>(null);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const snapshotOpacity = useRef(new Animated.Value(0)).current;
+  const pendingTheme = useRef<Theme | null>(null);
+  const switching = useRef(false);
 
-  const toggleTheme = () => {
+  const apply = (next: Theme) => {
+    setOverride(next);
+    Appearance.setColorScheme(next);
+    saveUserProfile({ theme: next }).catch(() => {});
+  };
+
+  const toggleTheme = async () => {
+    if (switching.current) return; // ignore taps during a transition
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setVeilColor(Colors[next].background);
-    Animated.timing(veil, { toValue: 1, duration: 160, useNativeDriver: true }).start(() => {
-      setOverride(next);
-      Appearance.setColorScheme(next);
-      saveUserProfile({ theme: next }).catch(() => {});
-      // Give the new colours a frame to paint before revealing them.
-      requestAnimationFrame(() => {
-        Animated.timing(veil, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+    switching.current = true;
+    try {
+      const uri = await captureRef(rootRef, { format: 'png', result: 'tmpfile' });
+      pendingTheme.current = next;
+      snapshotOpacity.setValue(1);
+      setSnapshot(uri); // the switch happens in onSnapshotShown, once the picture is on screen
+    } catch {
+      apply(next); // no snapshot available: switch without the transition
+      switching.current = false;
+    }
+  };
+
+  const onSnapshotShown = () => {
+    const next = pendingTheme.current;
+    if (!next) return;
+    pendingTheme.current = null;
+    apply(next);
+    // Two frames for the new colours to paint under the picture, then dissolve it.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      Animated.timing(snapshotOpacity, {
+        toValue: 0, duration: 380, easing: Easing.inOut(Easing.quad), useNativeDriver: true,
+      }).start(() => {
+        setSnapshot(null);
+        switching.current = false;
       });
-    });
+    }));
   };
 
   const colors = Colors[theme];
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, colors }}>
-      {children}
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: veilColor, opacity: veil }]}
-      />
+      <View ref={rootRef} collapsable={false} style={{ flex: 1 }}>
+        {children}
+      </View>
+      {snapshot && (
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: snapshotOpacity }]}>
+          <Image source={{ uri: snapshot }} onLoad={onSnapshotShown} fadeDuration={0} style={StyleSheet.absoluteFill} />
+        </Animated.View>
+      )}
     </ThemeContext.Provider>
   );
 };
