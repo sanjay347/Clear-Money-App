@@ -1,4 +1,4 @@
-import { ParsedTransaction, cleanMerchantName } from './shared';
+import { ParsedTransaction, cleanMerchantName, tidy } from './shared';
 
 // Citi credit card statement format:
 //   "01/02/2026  01/03/2026  STARBUCKS #12345  $5.50"  (trans date, post date, desc, amount)
@@ -36,7 +36,7 @@ export const parseCitiStatement = (text: string): ParsedTransaction[] => {
     const m = line.match(re) ?? line.match(reFallback);
     if (!m) continue;
 
-    const description = m[2].trim();
+    const description = tidy(m[2]);
     if (SKIP_PATTERN.test(description) || description.length < 3) continue;
 
     const rawAmount = parseAmount(m[3]);

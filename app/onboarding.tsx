@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
+import { Alert,
   View, Text, StyleSheet, FlatList, Dimensions, Pressable,
   TextInput, TouchableOpacity, Animated, KeyboardAvoidingView,
   Platform, ScrollView,
@@ -9,10 +9,15 @@ import { useRouter } from 'expo-router';
 import {
   ShieldCheck, Zap, Bell, ChevronRight, Check, ArrowRight,
 } from 'lucide-react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { createModelDownload } from '../src/gemma/downloadManager';
 import { saveUserProfile } from '../src/db/transactions';
 import { Fonts } from '../src/components/Typography';
 import { BankType, BANK_LABELS } from '../src/parsers/index';
+
+// The on-device model file. Shown to the user before anything is downloaded.
+const MODEL_GB = 5.3;
+const MODEL_SIZE = `${MODEL_GB} GB`;
 
 const { width: W, height: H } = Dimensions.get('window');
 const BANKS: BankType[] = ['chase', 'bofa', 'wellsfargo', 'citi'];
@@ -398,6 +403,8 @@ export default function OnboardingScreen() {
   const [downloadStarted, setDownloadStarted]   = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadDone, setDownloadDone]         = useState(false);
+  const [downloadFailed, setDownloadFailed]     = useState(false);
+  const consentAsked                            = useRef(false);
 
   // Questions state
   const [qIndex, setQIndex]                     = useState(0);  // 0=name, 1=aiName, 2=bank, 3=income
@@ -445,9 +452,11 @@ export default function OnboardingScreen() {
   useEffect(() => { aiNameRef.current = aiName; }, [aiName]);
   useEffect(() => { notifGrantedRef.current = notifGranted; }, [notifGranted]);
 
-  // ── Start download silently on first Next press ──
+  // ── Start the model download (only after the user has agreed, see askToDownload) ──
   const startDownload = useCallback(() => {
     if (downloadStarted) return;
+    setDownloadFailed(false);
+    setDownloadProgress(0);
     setDownloadStarted(true);
     const dl = createModelDownload((progress) => setDownloadProgress(progress));
     downloadRef.current = dl;
@@ -459,8 +468,34 @@ export default function OnboardingScreen() {
           sendReadyNotification(aiNameRef.current || 'Your AI');
         }
       })
-      .catch((e) => console.log('[Download] Error:', e?.message));
+      .catch((e) => {
+        // Without this the setup screen waited forever on a download that had died.
+        console.log('[Download] Error:', e?.message);
+        setDownloadStarted(false);
+        setDownloadFailed(true);
+      });
   }, [downloadStarted]); // intentionally no aiName/notifGranted deps — use refs
+
+  // ── Ask before downloading ──
+  // The model is 5.3 GB. Starting that silently on the first tap could use up a
+  // mobile data plan, so say what it is and how big, and warn on mobile data.
+  const askToDownload = useCallback(async () => {
+    if (downloadStarted || consentAsked.current) return;
+    consentAsked.current = true;
+    let onMobileData = false;
+    try { onMobileData = (await NetInfo.fetch()).type === 'cellular'; } catch { /* assume Wi-Fi */ }
+    Alert.alert(
+      'One download, then fully private',
+      `ClearMoney's AI runs on this phone, so it downloads its model once: ${MODEL_SIZE}.\n\n` +
+        (onMobileData
+          ? "You're on mobile data. This could use a large part of your plan."
+          : 'Wi-Fi is recommended. You can keep going while it downloads.'),
+      [
+        { text: 'Not now', style: 'cancel', onPress: () => { consentAsked.current = false; } },
+        { text: onMobileData ? 'Download anyway' : 'Download', onPress: startDownload },
+      ],
+    );
+  }, [downloadStarted, startDownload]);
 
   // ── Auto-advance to complete once download finishes (while on setup screen) ──
   useEffect(() => {
@@ -471,7 +506,7 @@ export default function OnboardingScreen() {
 
   // ── Navigate through intro slides ──
   const handleNext = useCallback(() => {
-    if (slideIndex === 0) startDownload();
+    if (slideIndex === 0) askToDownload();
     if (slideIndex < SLIDES.length - 1) {
       const next = slideIndex + 1;
       setSlideIndex(next);
@@ -479,7 +514,7 @@ export default function OnboardingScreen() {
     } else {
       setStep('questions');
     }
-  }, [slideIndex, startDownload]);
+  }, [slideIndex, askToDownload]);
 
   const handleBack = useCallback(() => {
     if (slideIndex > 0) {
@@ -781,9 +816,37 @@ export default function OnboardingScreen() {
           <SetupIllustration />
 
           <Text style={s.setupTitle}>Setting up {name}</Text>
-          <Text style={s.setupSub}>
-            Personalizing your AI assistant.{'\n'}This only happens once — sit tight.
-          </Text>
+          {downloadFailed ? (
+            <View style={s.dlBox}>
+              <Text style={s.setupSub}>The download stopped. Check your connection and try again.</Text>
+              <TouchableOpacity style={s.dlButton} onPress={startDownload} activeOpacity={0.85}>
+                <Text style={s.dlButtonText}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          ) : !downloadStarted && !downloadDone ? (
+            <View style={s.dlBox}>
+              <Text style={s.setupSub}>
+                {name} runs on this phone, so it needs its model first.{'\n'}One download of {MODEL_SIZE}. Wi-Fi recommended.
+              </Text>
+              <TouchableOpacity style={s.dlButton} onPress={startDownload} activeOpacity={0.85}>
+                <Text style={s.dlButtonText}>Download {MODEL_SIZE}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={s.dlBox}>
+              <Text style={s.setupSub}>Downloading the model. This happens once.</Text>
+              <View
+                style={s.dlTrack}
+                accessibilityRole="progressbar"
+                accessibilityValue={{ min: 0, max: 100, now: Math.round(downloadProgress * 100) }}
+              >
+                <View style={[s.dlFill, { width: `${Math.max(downloadProgress * 100, 2)}%` }]} />
+              </View>
+              <Text style={s.dlStatus}>
+                {(downloadProgress * MODEL_GB).toFixed(1)} of {MODEL_SIZE} · {Math.round(downloadProgress * 100)}%
+              </Text>
+            </View>
+          )}
 
           {/* Notification permission card */}
           {!notifAsked ? (
@@ -795,7 +858,7 @@ export default function OnboardingScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.notifTitle}>Yes, notify me</Text>
-                  <Text style={s.notifSub}>Close the app — we'll ping you when {name} is ready</Text>
+                  <Text style={s.notifSub}>Switch to other apps while it downloads</Text>
                 </View>
                 <ChevronRight size={16} color="#9CA3AF" />
               </TouchableOpacity>
@@ -815,7 +878,7 @@ export default function OnboardingScreen() {
                   </Text>
                   <Text style={s.notifSub}>
                     {notifGranted
-                      ? 'Feel free to close the app — we\'ll ping you when done'
+                      ? 'You can switch apps. Just don\'t swipe ClearMoney away.'
                       : 'Almost there, hang tight'}
                   </Text>
                 </View>
@@ -1072,7 +1135,13 @@ const s = StyleSheet.create({
   notifSkip:      { alignItems: 'center', paddingVertical: 12 },
   notifSkipText:  { fontSize: 13, fontFamily: Fonts.medium, color: '#B0BAD0' },
 
-  setupNote:      { fontSize: 12, fontFamily: Fonts.regular, color: '#C4CCDA', textAlign: 'center', lineHeight: 18 },
+  dlBox:          { alignSelf: 'stretch', alignItems: 'center', marginBottom: 8 },
+  dlTrack:        { alignSelf: 'stretch', height: 8, borderRadius: 4, backgroundColor: '#DCE4F8', overflow: 'hidden' },
+  dlFill:         { height: 8, borderRadius: 4, backgroundColor: '#3B82F6' },
+  dlStatus:       { fontSize: 13, fontFamily: Fonts.medium, color: '#5B6A8A', marginTop: 10, marginBottom: 24 },
+  dlButton:       { alignSelf: 'stretch', backgroundColor: '#3B82F6', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginBottom: 24 },
+  dlButtonText:   { fontSize: 16, fontFamily: Fonts.bold, color: '#FFFFFF' },
+  setupNote:      { fontSize: 12, fontFamily: Fonts.regular, color: '#7C89A6', textAlign: 'center', lineHeight: 18 },
 
   // Complete
   completeContainer: { flex: 1, backgroundColor: '#F2F5FF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

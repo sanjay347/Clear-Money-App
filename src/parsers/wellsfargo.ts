@@ -1,4 +1,4 @@
-import { ParsedTransaction, cleanMerchantName, inferYear } from './shared';
+import { ParsedTransaction, cleanMerchantName, inferYear, tidy } from './shared';
 
 // Wells Fargo checking format:
 //   "1/2/2026  STARBUCKS #12345  -5.50  1,234.56"  (last col = running balance)
@@ -30,7 +30,7 @@ export const parseWellsFargoStatement = (text: string, today: Date = new Date())
   for (const line of lines) {
     let m = line.match(re1);
     if (m) {
-      const description = m[4].trim();
+      const description = tidy(m[4]);
       if (SKIP_PATTERN.test(description) || description.length < 3) continue;
       const rawAmount = parseAmount(m[5]);
       if (rawAmount === null) continue;
@@ -50,7 +50,7 @@ export const parseWellsFargoStatement = (text: string, today: Date = new Date())
 
     m = line.match(re2);
     if (m) {
-      const description = m[3].trim();
+      const description = tidy(m[3]);
       if (SKIP_PATTERN.test(description) || description.length < 3) continue;
       const rawAmount = parseAmount(m[4]);
       if (rawAmount === null) continue;

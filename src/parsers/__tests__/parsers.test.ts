@@ -114,3 +114,25 @@ describe('parseCitiStatement', () => {
     expect(txs[2]).toMatchObject({ date: '2026-01-09', amount: 61.2, type: 'debit' });
   });
 });
+
+describe('Chase debit-card statement lines', () => {
+  it('reads "- 10.00" as the amount, not the running balance after it', () => {
+    const [tx] = parseChaseStatement('03/16  Card Purchase 03/16 Csc Serviceworks, Inc. Plainview NY Card 9433  - 10.00  548.81', TODAY);
+    expect(tx).toMatchObject({ amount: 10, type: 'debit' });
+  });
+
+  it('collapses PDF column spacing inside a description', () => {
+    const [tx] = parseChaseStatement('03/09  Zelle Payment  From   Sanjay Kotturi Wfct0Zwg3T88   884.83   1,200.00', TODAY);
+    expect(tx.description).toBe('Zelle Payment From Sanjay Kotturi Wfct0Zwg3T88');
+    expect(tx.type).toBe('credit');
+  });
+
+  it.each([
+    ['CARD PURCHASE WITH PIN 03/14 DOLLAR-GENERAL # DG 02 NORMAN OK CARD', 'DOLLAR-GENERAL # DG 02 NORMAN OK'],
+    ['Card Purchase 03/15 Ionos Inc. Rvk1773270 Philadelphia PA Card 9433', 'IONOS INC. RVK1773270 PHILADELPHIA PA'],
+    ['CARD PURCHASE 03/08 7196 GREAT CLIPS AT EAS NORMAN OK CARD', '7196 GREAT CLIPS AT EAS NORMAN OK'],
+    ['Recurring Card Purchase 03/02 Netflix.Com Card 9433', 'NETFLIX.COM'],
+  ])('strips card-purchase boilerplate: %s', (raw, expected) => {
+    expect(cleanMerchantName(raw)).toBe(expected);
+  });
+});

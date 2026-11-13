@@ -1,15 +1,25 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Fonts } from '../../src/components/Typography';
-import {
+import { Easing, Keyboard,
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
-  KeyboardAvoidingView, Platform, Animated, ActivityIndicator,
+  Platform, Animated, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { chatAgentStream, type AnswerSource } from '../../src/gemma/agents/chat';
+import { chatAgentStream, type AnswerSource, type TransactionList } from '../../src/gemma/agents/chat';
+import CategoryIcon from '../../src/components/CategoryIcon';
+import { displayMerchant, formatDay, formatMoney } from '../../src/design/format';
 import { getTransactions, getUserProfile } from '../../src/db/transactions';
 import { useTheme } from '../../src/components/ThemeContext';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { TAB_BAR_SPACE } from '../../src/design/tokens';
+
+// Liquid Glass exists on iOS 26 and later; older systems get a solid card.
+const GLASS = isLiquidGlassAvailable();
+// Where the input bar rests: just above the floating tab bar.
+const RESTING_BOTTOM = TAB_BAR_SPACE - 4;
+const InputBar: React.ComponentType<any> = GLASS ? GlassView : View;
 import PrivacyBadge from '../../src/components/PrivacyBadge';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -21,6 +31,8 @@ interface Message {
   suggestions?: string[];
   /** Which path produced the answer: computed in code, or written by the model. */
   source?: AnswerSource;
+  /** Set when the answer is a list of transactions. */
+  list?: TransactionList;
 }
 
 const STARTER_QUESTIONS = [
@@ -243,6 +255,27 @@ const MessageBubble = memo(({
         ) : (
           <View style={[styles.bubble, styles.aiBubble, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <RichText text={msg.text} color={colors.text} />
+            {msg.list && !msg.streaming && (
+              <View style={styles.txList}>
+                {msg.list.transactions.map((t, ti) => (
+                  <View
+                    key={t.id}
+                    style={[styles.txListRow, ti > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                  >
+                    <CategoryIcon category={t.category} size={34} />
+                    <View style={styles.txListText}>
+                      <Text style={[styles.txListMerchant, { color: colors.text }]} numberOfLines={1}>{displayMerchant(t.merchant)}</Text>
+                      <Text style={[styles.txListMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {formatDay(t.date)} · {t.category}
+                      </Text>
+                    </View>
+                    <Text style={[styles.txListAmount, { color: t.type === 'credit' ? '#10B981' : colors.text }]}>
+                      {formatMoney(t.type === 'credit' ? t.amount : -t.amount, { sign: true })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
             {msg.streaming && isLast && msg.text.length > 0 && <Cursor />}
           </View>
         )}
@@ -297,6 +330,30 @@ export default function ChatScreen() {
     elevation: 5,
   };
   const insets = useSafeAreaInsets();
+  // The input bar is absolutely positioned, and padding added by a
+  // KeyboardAvoidingView does not move absolutely positioned children, so the
+  // bar stayed put and the keyboard covered it. Its position now comes straight
+  // from the keyboard's height, animated with the keyboard's own timing.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const lift = useRef(new Animated.Value(0)).current; // how far the bar is raised above its resting place
+  useEffect(() => {
+    const move = (height: number, duration: number) => {
+      setKeyboardHeight(height);
+      Animated.timing(lift, {
+        toValue: height > 0 ? height + 8 - RESTING_BOTTOM : 0,
+        duration: duration || 250,
+        easing: Easing.bezier(0.17, 0.59, 0.4, 0.77), // close to the iOS keyboard curve
+        useNativeDriver: true,
+      }).start();
+    };
+    const show = Keyboard.addListener('keyboardWillShow', e => move(e.endCoordinates.height, e.duration));
+    const hide = Keyboard.addListener('keyboardWillHide', e => move(0, e.duration));
+    return () => { show.remove(); hide.remove(); };
+  }, [lift]);
+  const keyboardOpen = keyboardHeight > 0;
+  useEffect(() => {
+    if (keyboardOpen) setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, [keyboardOpen]);
   const [aiName, setAiName]         = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -349,6 +406,7 @@ export default function ChatScreen() {
 
       let finalAnswer = '';
       let answerSource: AnswerSource | undefined;
+      let answerList: TransactionList | undefined;
       // Earlier turns give the model context for follow-ups ("what about last month?").
       const history = messages
         .filter(m => m.text.trim() && !m.streaming)
@@ -361,13 +419,13 @@ export default function ChatScreen() {
           m.id === streamingIdRef.current ? { ...m, text: partial } : m
         ));
         scrollToBottom();
-      }, { history, onSource: (source) => { answerSource = source; } });
+      }, { history, onSource: (source) => { answerSource = source; }, onList: (list) => { answerList = list; } });
 
       // Attach follow-up suggestions to the completed AI message
       const suggestions = getSuggestions(lastUserMsgRef.current, finalAnswer);
       setMessages(prev => prev.map(m =>
         m.id === aiMsgId
-          ? { ...m, streaming: false, suggestions, source: answerSource }
+          ? { ...m, streaming: false, suggestions, source: answerSource, list: answerList }
           : m
       ));
     } catch {
@@ -385,10 +443,8 @@ export default function ChatScreen() {
   const canSend = inputText.trim().length > 0 && !isLoading;
 
   return (
-    <KeyboardAvoidingView
+    <View
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom + 8 : 20}
     >
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 12 }]}>
@@ -424,17 +480,22 @@ export default function ChatScreen() {
             chipShadow={chipShadow}
           />
         ))}
-        <View style={{ height: 20 }} />
+        {/* Room for the floating input bar and the tab bar below it */}
+        <View style={{ height: 76 + (keyboardOpen ? keyboardHeight + 8 : TAB_BAR_SPACE) }} />
       </ScrollView>
 
-      {/* Input bar */}
-      <View style={[
-        styles.inputBar,
-        { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: 12 },
-        inputBarShadow,
-      ]}>
+      {/* Input bar: floats over the conversation. Liquid Glass where the system has it. */}
+      <Animated.View style={[styles.inputDock, { bottom: RESTING_BOTTOM, transform: [{ translateY: Animated.multiply(lift, -1) }] }]}>
+      <InputBar
+        {...(GLASS ? { glassEffectStyle: 'regular' as const } : {})}
+        style={[
+          styles.inputBar,
+          !GLASS && { backgroundColor: colors.card, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth },
+          !GLASS && inputBarShadow,
+        ]}
+      >
         <TextInput
-          style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+          style={[styles.input, { color: colors.text }, GLASS ? { backgroundColor: 'transparent', borderWidth: 0 } : { backgroundColor: colors.background, borderColor: colors.border }]}
           placeholder="Ask about your finances..."
           placeholderTextColor={colors.textSecondary}
           value={inputText}
@@ -457,8 +518,9 @@ export default function ChatScreen() {
             : <Send size={17} color={canSend ? '#FFFFFF' : colors.textSecondary} />
           }
         </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+      </InputBar>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -474,7 +536,13 @@ const styles = StyleSheet.create({
   onDeviceText: { fontSize: 11, fontFamily: Fonts.semiBold, color: '#3B82F6', letterSpacing: 0.3 },
 
   chat:         { flex: 1 },
-  chatContent:  { paddingHorizontal: 16, paddingTop: 24 },
+  chatContent:  { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 28 },
+  txList:        { marginTop: 10 },
+  txListRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
+  txListText:    { flex: 1 },
+  txListMerchant:{ fontSize: 15, fontFamily: Fonts.semiBold },
+  txListMeta:    { fontSize: 12, fontFamily: Fonts.regular, marginTop: 1 },
+  txListAmount:  { fontSize: 15, fontFamily: Fonts.bold },
 
   suggestions:  { marginBottom: 32, gap: 10 },
   sourceLabel:  { fontSize: 11, fontFamily: Fonts.medium, marginTop: 5, marginLeft: 4 },
@@ -483,7 +551,7 @@ const styles = StyleSheet.create({
   chipArrow:    { fontSize: 18, color: '#3B82F6', marginLeft: 10 },
 
   msgWrapper:   { flexDirection: 'row', marginBottom: 14, alignItems: 'flex-end' },
-  msgLeft:      { justifyContent: 'flex-start' },
+  msgLeft:      { justifyContent: 'flex-start', alignItems: 'flex-start' }, // avatar beside the bubble, not the chips under it
   msgRight:     { justifyContent: 'flex-end' },
   bubbleCol:    { flex: 1 },
   smallAvatar:  { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 8, marginBottom: 2, flexShrink: 0 },
@@ -492,7 +560,8 @@ const styles = StyleSheet.create({
   aiBubble:     { borderBottomLeftRadius: 6, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
   userText:     { color: '#FFFFFF', fontSize: 15, fontFamily: Fonts.regular, lineHeight: 23 },
 
-  inputBar:     { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, alignItems: 'flex-end', gap: 10 },
+  inputDock:    { position: 'absolute', left: 12, right: 12 },
+  inputBar:     { flexDirection: 'row', padding: 8, borderRadius: 30, alignItems: 'flex-end', gap: 8, overflow: 'hidden' },
   input:        { flex: 1, borderRadius: 24, paddingHorizontal: 18, paddingTop: 13, paddingBottom: 13, fontSize: 15, fontFamily: Fonts.regular, maxHeight: 110, borderWidth: 1 },
   sendBtn:      { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
 });

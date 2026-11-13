@@ -25,3 +25,10 @@ export const semantic = {
   warning: '#F59E0B',
   info: '#3B82F6',
 } as const;
+
+/**
+ * Room to leave at the bottom of a tab screen. The system tab bar floats over
+ * the content instead of taking space in the layout, so scroll views and bottom
+ * bars must stay clear of it themselves.
+ */
+export const TAB_BAR_SPACE = 96;

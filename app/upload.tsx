@@ -4,7 +4,7 @@ import {
   Modal, Pressable, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { CheckCircle2, ArrowLeft, ChevronRight, Camera, FileText } from 'lucide-react-native';
@@ -24,6 +24,8 @@ import {
   getTransactions, insertTransactions, insertInsights, recordUpload,
 } from '../src/db/transactions';
 import { useTheme } from '../src/components/ThemeContext';
+import { displayMerchant } from '../src/design/format';
+import PrivacyBadge from '../src/components/PrivacyBadge';
 import * as Haptics from 'expo-haptics';
 
 type ProcessingState = 'idle' | 'preparing' | 'reading' | 'categorizing' | 'analyzing' | 'done';
@@ -66,6 +68,7 @@ const PHOTO_STEPS = [
 
 export default function UploadScreen() {
   const router = useRouter();
+  const isTab = usePathname() === '/add'; // shown as the Add tab, not pushed
   const { colors } = useTheme();
 
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
@@ -173,7 +176,8 @@ export default function UploadScreen() {
       const ruleHits: Map<number, ReturnType<typeof tryRuleCategorize>> = new Map();
       const unknownIndexes: number[] = [];
       for (let i = 0; i < transactions.length; i++) {
-        const hit = tryRuleCategorize(transactions[i].description, transactions[i].type);
+        // Cleaned text, so boilerplate like "CARD PURCHASE 03/14" does not hide the merchant.
+        const hit = tryRuleCategorize(transactions[i].merchant_clean || transactions[i].description, transactions[i].type);
         if (hit) ruleHits.set(i, hit);
         else unknownIndexes.push(i);
       }
@@ -182,7 +186,7 @@ export default function UploadScreen() {
       if (unknownIndexes.length > 0) {
         advanceStep(5, `0 / ${unknownIndexes.length} merchants`);
         const batchResults = await batchCategorize(
-          unknownIndexes.map(i => transactions[i].description),
+          unknownIndexes.map(i => transactions[i].merchant_clean || transactions[i].description),
           (done, total) => advanceStep(5, `${done} / ${total} merchants`)
         );
         unknownIndexes.forEach((txIdx, j) => { if (batchResults[j]) aiResults.set(txIdx, batchResults[j]); });
@@ -194,7 +198,7 @@ export default function UploadScreen() {
         return {
           id: stableId(t.date, t.description, t.amount),
           date: t.date, amount: t.amount, description: t.description,
-          merchant: r?.merchant_clean || t.merchant_clean || t.description,
+          merchant: displayMerchant(r?.merchant_clean || t.merchant_clean || t.description),
           category: r?.category || 'Other',
           subcategory: null,
           is_subscription: !!r?.is_subscription,
@@ -287,9 +291,14 @@ export default function UploadScreen() {
   };
 
   const handleExtractError = (err: string) => {
-    console.error('Extract error:', err);
+    console.warn('Extract error:', err);
     setProcessingState('idle'); advanceStep(-1);
     setPdfUri(null); setImageUri(null);
+    // Without this the screen silently returned to idle and the user had no idea why.
+    Alert.alert(
+      "Couldn't read that file",
+      'Try a PDF downloaded from your bank (not a scan), or use the photo option for paper statements.',
+    );
   };
 
   const isProcessing = processingState !== 'idle';
@@ -318,12 +327,18 @@ export default function UploadScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn} hitSlop={8}>
-          <ArrowLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        {/* No back button when this screen is the Add tab: there is nowhere to go back to. */}
+        {!isTab && (
+          <TouchableOpacity
+            onPress={handleBack} style={styles.backBtn} hitSlop={8}
+            accessibilityRole="button" accessibilityLabel="Back"
+          >
+            <ArrowLeft size={24} color={colors.text} />
+          </TouchableOpacity>
+        )}
         <View style={styles.logoRow}>
           <CheckCircle2 size={18} color="#3B82F6" />
-          <Text style={[styles.logoText, { color: colors.text }]}>Clear Money</Text>
+          <Text style={[styles.logoText, { color: colors.text }]}>ClearMoney</Text>
         </View>
       </View>
 
@@ -347,13 +362,31 @@ export default function UploadScreen() {
           <View style={styles.mainContent}>
             <Text style={[styles.titleMain, { color: colors.text }]}>Add a statement.</Text>
             <Text style={[styles.titleSub, { color: colors.textSecondary }]}>Analyzed locally.</Text>
-            <View style={styles.privacyBadge}>
-              <View style={styles.blueDot} />
-              <Text style={styles.privacyText}>Your data never leaves your phone</Text>
+            <View style={{ alignSelf: 'flex-start', marginTop: 14 }}>
+              <PrivacyBadge label="Never leaves your phone" />
+            </View>
+
+            {/* What will happen, in order. Fills what used to be a blank half screen. */}
+            <View style={styles.howList}>
+              {[
+                ['Get a statement PDF', "Download it from your bank's website or app."],
+                ['ClearMoney reads it here', 'Every transaction is sorted on this phone.'],
+                ['See where your money went', 'Spending, subscriptions and trends, in seconds.'],
+              ].map(([title, detail], i) => (
+                <View key={title} style={styles.howRow}>
+                  <View style={[styles.howNum, { backgroundColor: colors.primary + '18' }]}>
+                    <Text style={[styles.howNumText, { color: colors.primary }]}>{i + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.howTitle, { color: colors.text }]}>{title}</Text>
+                    <Text style={[styles.howDetail, { color: colors.textSecondary }]}>{detail}</Text>
+                  </View>
+                </View>
+              ))}
             </View>
           </View>
 
-          <View style={styles.bottomSection}>
+          <View style={[styles.bottomSection, isTab && { paddingBottom: 84 }]}>
             <TouchableOpacity style={styles.uploadButton} onPress={() => handlePickMode('pdf')}>
               <FileText size={20} color="#FFFFFF" style={styles.btnIcon} />
               <Text style={styles.uploadButtonText}>Upload PDF statement</Text>
@@ -372,10 +405,7 @@ export default function UploadScreen() {
             <Text style={[styles.supportedBanks, { color: colors.textSecondary }]}>
               Chase · Bank of America · Wells Fargo · Citi
             </Text>
-            <View style={styles.offlineBadge}>
-              <View style={styles.blueDot} />
-              <Text style={styles.offlineText}>Gemma 4 · on device</Text>
-            </View>
+
           </View>
         </View>
       )}
@@ -402,8 +432,14 @@ const styles = StyleSheet.create({
   // ── Idle ──
   idleWrapper:  { flex: 1, justifyContent: 'space-between' },
   mainContent:  { flex: 1, justifyContent: 'flex-start', paddingTop: 60 },
-  titleMain:    { fontSize: 46, fontFamily: Fonts.serif,     letterSpacing: -1.5, lineHeight: 54 },
-  titleSub:     { fontSize: 46, fontFamily: Fonts.serifSemi, letterSpacing: -1.5, lineHeight: 54, marginBottom: 28 },
+  howList:      { marginTop: 28, gap: 18 },
+  howRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  howNum:       { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  howNumText:   { fontSize: 14, fontFamily: Fonts.bold },
+  howTitle:     { fontSize: 16, fontFamily: Fonts.semiBold },
+  howDetail:    { fontSize: 14, fontFamily: Fonts.regular, marginTop: 2, lineHeight: 20 },
+  titleMain:    { fontSize: 40, fontFamily: Fonts.serif,     letterSpacing: -1.2, lineHeight: 46 },
+  titleSub:     { fontSize: 40, fontFamily: Fonts.serifSemi, letterSpacing: -1.2, lineHeight: 46 },
   privacyBadge: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(59,130,246,0.07)',
