@@ -3,10 +3,35 @@ import { CategorizerOutput } from '../types';
 
 const BATCH_SIZE = 5; // smaller batches = less context pressure = more reliable JSON
 
+export const CATEGORIES = [
+  'Food & Dining', 'Shopping', 'Subscriptions', 'Transportation', 'Bills & Utilities',
+  'Entertainment', 'Health & Fitness', 'Travel', 'Income', 'Transfer', 'Other',
+] as const;
+
+const CATEGORY_BY_LOWERCASE = new Map<string, string>(CATEGORIES.map(c => [c.toLowerCase(), c]));
+
+/**
+ * Turns one model-produced object into a CategorizerOutput, or null if unusable.
+ * The model occasionally invents a category ("Groceries", "Dining"); anything
+ * outside the fixed list becomes "Other" so charts and budgets never see an
+ * unknown bucket.
+ */
+export function normalizeModelItem(item: unknown): CategorizerOutput | null {
+  if (!item || typeof item !== 'object') return null;
+  const o = item as Record<string, unknown>;
+  if (typeof o.category !== 'string' || !o.category.trim()) return null;
+  return {
+    category: CATEGORY_BY_LOWERCASE.get(o.category.trim().toLowerCase()) ?? 'Other',
+    merchant_clean: typeof o.merchant_clean === 'string' ? o.merchant_clean.trim() : '',
+    is_subscription: o.is_subscription === true,
+    is_recurring: o.is_recurring === true,
+  };
+}
+
 const SYSTEM_PROMPT = `You are a bank transaction categorizer. Output ONLY a raw JSON array. No markdown, no explanation, no code fences.
 
 Each element must have exactly these keys:
-{"category":"Food & Dining|Shopping|Subscriptions|Transportation|Bills & Utilities|Entertainment|Health & Fitness|Travel|Income|Transfer|Other","merchant_clean":"readable name","is_subscription":false,"is_recurring":false}`;
+{"category":"${CATEGORIES.join('|')}","merchant_clean":"readable name","is_subscription":false,"is_recurring":false}`;
 
 function buildBatchPrompt(descriptions: string[]): string {
   const list = descriptions.map((d, i) => `${i + 1}. ${d}`).join('\n');
@@ -26,7 +51,7 @@ function extractJSONArray(raw: string): string | null {
   return null;
 }
 
-function parseBatchResponse(raw: string, count: number): (CategorizerOutput | null)[] {
+export function parseBatchResponse(raw: string, count: number): (CategorizerOutput | null)[] {
   try {
     const jsonStr = extractJSONArray(raw);
     if (!jsonStr) throw new Error('No JSON array found');
@@ -35,21 +60,9 @@ function parseBatchResponse(raw: string, count: number): (CategorizerOutput | nu
     if (!Array.isArray(parsed)) throw new Error('Not an array');
 
     const results: (CategorizerOutput | null)[] = [];
-    for (let i = 0; i < count; i++) {
-      const item = parsed[i];
-      if (item && typeof item === 'object' && item.category) {
-        results.push({
-          category: item.category,
-          merchant_clean: item.merchant_clean ?? '',
-          is_subscription: !!item.is_subscription,
-          is_recurring: !!item.is_recurring,
-        });
-      } else {
-        results.push(null);
-      }
-    }
+    for (let i = 0; i < count; i++) results.push(normalizeModelItem(parsed[i]));
     return results;
-  } catch (e) {
+  } catch {
     console.log('[BatchCategorizer] Batch parse failed, will retry individually');
     return Array(count).fill(null);
   }
@@ -57,7 +70,7 @@ function parseBatchResponse(raw: string, count: number): (CategorizerOutput | nu
 
 const SINGLE_SYSTEM = `You are a bank transaction categorizer. Output ONLY a raw JSON object. No markdown, no explanation.
 Keys: {"category":"...","merchant_clean":"...","is_subscription":false,"is_recurring":false}
-Categories: Food & Dining|Shopping|Subscriptions|Transportation|Bills & Utilities|Entertainment|Health & Fitness|Travel|Income|Transfer|Other`;
+Categories: ${CATEGORIES.join('|')}`;
 
 async function categorizeOne(description: string): Promise<CategorizerOutput | null> {
   const prompt = `Transaction: "${description}"`;
@@ -66,14 +79,7 @@ async function categorizeOne(description: string): Promise<CategorizerOutput | n
     const start = raw.indexOf('{');
     const end   = raw.lastIndexOf('}');
     if (start === -1 || end <= start) return null;
-    const item = JSON.parse(raw.substring(start, end + 1));
-    if (!item?.category) return null;
-    return {
-      category: item.category,
-      merchant_clean: item.merchant_clean ?? '',
-      is_subscription: !!item.is_subscription,
-      is_recurring: !!item.is_recurring,
-    };
+    return normalizeModelItem(JSON.parse(raw.substring(start, end + 1)));
   } catch {
     return null;
   }
