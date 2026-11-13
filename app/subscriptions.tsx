@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
 import { getSubscriptions, SubscriptionItem } from '../src/db/transactions';
+import { BANK_LABELS, BankType } from '../src/parsers/index';
 
 export default function SubscriptionsScreen() {
   const { colors } = useTheme();
@@ -33,9 +34,14 @@ export default function SubscriptionsScreen() {
     return diffDays >= 45;
   };
 
-  const isDuplicateCharge = (sub: SubscriptionItem) => {
-    // charge_count is total; we approximate this month via last_charged being this month
-    return sub.last_charged.startsWith(thisMonth) && sub.charge_count >= 2;
+  // Billed twice in the current month. (charge_count is the all-time total, so
+  // any subscription with a few months of history used to be flagged.)
+  const isDuplicateCharge = (sub: SubscriptionItem) =>
+    sub.last_charged.startsWith(thisMonth) && sub.latest_month_charges >= 2;
+
+  const formatDay = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -102,14 +108,14 @@ export default function SubscriptionsScreen() {
 
                 <View style={[styles.subBottom, { borderTopColor: colors.border }]}>
                   <View style={[styles.bankBadge, { backgroundColor: colors.border }]}>
-                    <Text style={[styles.bankBadgeText, { color: colors.textSecondary }]}>{sub.bank}</Text>
+                    <Text style={[styles.bankBadgeText, { color: colors.textSecondary }]}>{BANK_LABELS[sub.bank as BankType] ?? sub.bank}</Text>
                   </View>
                   <Text style={[styles.lastCharged, { color: colors.textSecondary }]}>
-                    Last: {sub.last_charged}
+                    Last charged {formatDay(sub.last_charged)}
                   </Text>
                   {duplicate && (
                     <View style={[styles.badge, { backgroundColor: '#EF44441A', borderColor: colors.danger }]}>
-                      <Text style={[styles.badgeText, { color: colors.danger }]}>Duplicate Charge!</Text>
+                      <Text style={[styles.badgeText, { color: colors.danger }]}>Charged twice this month</Text>
                     </View>
                   )}
                   {cancelled && !duplicate && (
