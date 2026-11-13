@@ -11,6 +11,7 @@ export const getDB = async (): Promise<SQLite.SQLiteDatabase> => {
 };
 
 export const insertTransactions = async (transactions: Transaction[]): Promise<void> => {
+  invalidateTransactionCache();
   const db = await getDB();
   const statement = await db.prepareAsync(
     `INSERT OR REPLACE INTO transactions 
@@ -39,15 +40,27 @@ export const insertTransactions = async (transactions: Transaction[]): Promise<v
   }
 };
 
+// Every tab asks for the full list each time it gains focus. Reading and
+// converting a few thousand rows on each tab switch kept the JavaScript thread
+// busy, which is what made the app feel slow. The list is kept in memory and
+// dropped whenever a write changes it.
+let transactionCache: Transaction[] | null = null;
+
+/** Call after any write to the transactions table. */
+export const invalidateTransactionCache = (): void => { transactionCache = null; };
+
 export const getTransactions = async (): Promise<Transaction[]> => {
-  const db = await getDB();
-  const result = await db.getAllAsync<any>('SELECT * FROM transactions ORDER BY date DESC');
-  
-  return result.map(r => ({
-    ...r,
-    is_subscription: Boolean(r.is_subscription),
-    is_recurring: Boolean(r.is_recurring)
-  }));
+  if (!transactionCache) {
+    const db = await getDB();
+    const result = await db.getAllAsync<any>('SELECT * FROM transactions ORDER BY date DESC');
+    transactionCache = result.map(r => ({
+      ...r,
+      is_subscription: Boolean(r.is_subscription),
+      is_recurring: Boolean(r.is_recurring)
+    }));
+  }
+  // A copy of the array, so a caller that sorts in place cannot reorder the cache.
+  return transactionCache.slice();
 };
 
 export const getTransactionCount = async (): Promise<number> => {
@@ -118,6 +131,7 @@ export const getMonthlySummary = async (month: string): Promise<MonthlySummary |
 };
 
 export const clearAllData = async (): Promise<void> => {
+  invalidateTransactionCache();
   const db = await getDB();
   await db.execAsync(`
     DELETE FROM transactions;
@@ -166,12 +180,14 @@ export const saveUserProfile = async (data: Record<string, string>): Promise<voi
 
 // ── Category edit ─────────────────────────────────────────────────────────────
 export const updateTransactionCategory = async (id: string, category: string): Promise<void> => {
+  invalidateTransactionCache();
   const db = await getDB();
   await db.runAsync('UPDATE transactions SET category = ? WHERE id = ?', [category, id]);
 };
 
 // ── Tags & Notes ─────────────────────────────────────────────────────────────
 export const updateTransactionMeta = async (id: string, tags: string, notes: string): Promise<void> => {
+  invalidateTransactionCache();
   const db = await getDB();
   await db.runAsync('UPDATE transactions SET tags = ?, notes = ? WHERE id = ?', [tags, notes, id]);
 };
