@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import CategoryIcon from '../src/components/CategoryIcon';
 import ScreenHeader from '../src/components/ScreenHeader';
 import { getMonthSpendByDay, getTransactionsByDate, DaySpend } from '../src/db/transactions';
 import { Transaction } from '../src/types';
@@ -34,18 +35,7 @@ export default function CalendarScreen() {
 
   const currentMonthStr = toMonthString(year, month);
 
-  const load = useCallback(async () => {
-    const data = await getMonthSpendByDay(currentMonthStr);
-    const map: Record<string, DaySpend> = {};
-    for (const d of data) map[d.date] = d;
-    setDayData(map);
-    setSelectedDate(null);
-    setSelectedTxs([]);
-  }, [currentMonthStr]);
-
-  useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const handleDayPress = async (dateStr: string) => {
+  const handleDayPress = useCallback(async (dateStr: string) => {
     setSelectedDate(dateStr);
     setDayLoading(true);
     try {
@@ -54,7 +44,25 @@ export default function CalendarScreen() {
     } finally {
       setDayLoading(false);
     }
-  };
+  }, []);
+
+  const load = useCallback(async () => {
+    const data = await getMonthSpendByDay(currentMonthStr);
+    const map: Record<string, DaySpend> = {};
+    for (const d of data) map[d.date] = d;
+    setDayData(map);
+
+    // Open on the most recent day with activity, so the screen is never half empty.
+    const latest = data.map(d => d.date).sort().pop();
+    if (latest) {
+      await handleDayPress(latest);
+    } else {
+      setSelectedDate(null);
+      setSelectedTxs([]);
+    }
+  }, [currentMonthStr, handleDayPress]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12); }
@@ -194,7 +202,8 @@ export default function CalendarScreen() {
             ) : (
               selectedTxs.map((tx, i) => (
                 <View key={tx.id} style={[styles.txRow, { borderBottomColor: colors.border, borderBottomWidth: i < selectedTxs.length - 1 ? StyleSheet.hairlineWidth : 0 }]}>
-                  <View style={{ flex: 1, marginRight: 12 }}>
+                  <CategoryIcon category={tx.category} size={36} />
+                  <View style={{ flex: 1, marginHorizontal: 12 }}>
                     <Text style={[styles.txMerchant, { color: colors.text }]} numberOfLines={1}>{tx.merchant}</Text>
                     <Text style={[styles.txCategory, { color: colors.textSecondary }]}>{tx.category}</Text>
                   </View>
