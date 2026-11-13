@@ -31,7 +31,7 @@ async function requestNotifPermission(): Promise<boolean> {
     const N = await import('expo-notifications');
     N.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false,
+        shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false,
       }),
     });
     const { status } = await N.requestPermissionsAsync();

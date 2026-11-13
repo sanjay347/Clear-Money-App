@@ -18,6 +18,7 @@ import { tryRuleCategorize } from '../src/gemma/rules';
 import { batchCategorize } from '../src/gemma/batchCategorizer';
 import { analyzeBehavior } from '../src/gemma/agents/behavior';
 import { predictCashFlow } from '../src/gemma/agents/predictor';
+import { stableId } from '../src/lib/stableId';
 import { detectInternalTransfers } from '../src/gemma/transferDetector';
 import {
   getTransactions, insertTransactions, insertInsights, recordUpload,
@@ -60,15 +61,6 @@ const PHOTO_STEPS = [
   'Analysis complete',
 ];
 
-function stableId(date: string, description: string, amount: number): string {
-  const key = `${date}_${description}_${amount.toFixed(2)}`;
-  let h = 5381;
-  for (let i = 0; i < key.length; i++) {
-    h = ((h << 5) + h) ^ key.charCodeAt(i);
-    h >>>= 0;
-  }
-  return `tx_${h.toString(36)}`;
-}
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
@@ -181,7 +173,7 @@ export default function UploadScreen() {
       const ruleHits: Map<number, ReturnType<typeof tryRuleCategorize>> = new Map();
       const unknownIndexes: number[] = [];
       for (let i = 0; i < transactions.length; i++) {
-        const hit = tryRuleCategorize(transactions[i].description);
+        const hit = tryRuleCategorize(transactions[i].description, transactions[i].type);
         if (hit) ruleHits.set(i, hit);
         else unknownIndexes.push(i);
       }

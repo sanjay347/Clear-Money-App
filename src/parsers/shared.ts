@@ -25,6 +25,9 @@ export const cleanMerchantName = (description: string): string => {
     }
   }
 
+  // Wells Fargo puts the purchase date first: "PURCHASE AUTHORIZED ON 01/14 CHIPOTLE"
+  clean = clean.replace(/^\d{2}\/\d{2}\s+/, '');
+
   // Remove trailing state+zip, trailing numbers, and reference codes
   clean = clean.replace(/\s+\w{2}\s+\d{5}(-\d{4})?$/, '');
   clean = clean.replace(/\s+#?\d{4,}$/, '');
@@ -32,4 +35,16 @@ export const cleanMerchantName = (description: string): string => {
   clean = clean.replace(/\s{2,}/g, ' ');
 
   return clean.trim();
+};
+
+/**
+ * Picks the year for a statement line that only gives month and day.
+ * Statements describe the past, so a date that would land more than a few days
+ * in the future (a December line imported in January) belongs to last year.
+ */
+export const inferYear = (month: number, day: number, today: Date = new Date()): number => {
+  const year = today.getFullYear();
+  const candidate = new Date(year, month - 1, day);
+  const GRACE_MS = 7 * 86_400_000; // pending transactions can post a few days ahead
+  return candidate.getTime() - today.getTime() > GRACE_MS ? year - 1 : year;
 };

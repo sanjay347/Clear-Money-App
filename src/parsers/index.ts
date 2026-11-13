@@ -5,7 +5,7 @@ import { parseCitiStatement } from './citi';
 
 // Re-export shared types so consumers only need to import from './index'
 export type { ParsedTransaction } from './shared';
-export { cleanMerchantName } from './shared';
+export { cleanMerchantName, inferYear } from './shared';
 
 export type BankType = 'chase' | 'bofa' | 'wellsfargo' | 'citi';
 

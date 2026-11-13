@@ -27,10 +27,10 @@ export const parseCitiStatement = (text: string): ParsedTransaction[] => {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
   // Citi: two dates then description then amount (with optional $ sign)
-  const re = /^(\d{2}\/\d{2}\/\d{4})\s+\d{2}\/\d{2}\/\d{4}\s+(.+?)\s+(\$?-?[\d,]+\.\d{2})$/;
+  const re = /^(\d{2}\/\d{2}\/\d{4})\s+\d{2}\/\d{2}\/\d{4}\s+(.+?)\s+(-?\$?-?[\d,]+\.\d{2})$/;
 
   // Simpler single-date fallback
-  const reFallback = /^(\d{2}\/\d{2}\/\d{4})\s{2,}(.+?)\s{2,}(\$?-?[\d,]+\.\d{2})$/;
+  const reFallback = /^(\d{2}\/\d{2}\/\d{4})\s{2,}(.+?)\s{2,}(-?\$?-?[\d,]+\.\d{2})$/;
 
   for (const line of lines) {
     const m = line.match(re) ?? line.match(reFallback);
