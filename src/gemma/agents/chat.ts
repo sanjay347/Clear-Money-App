@@ -52,8 +52,20 @@ function currentYear() { return new Date().getFullYear().toString(); }
 
 // ─── Response builders ────────────────────────────────────────────────────────
 
+/**
+ * A list of transactions that answers a question. The chat renders these as
+ * rows; `title` is the short line shown above them.
+ */
+export interface TransactionList { title: string; transactions: Transaction[] }
+
+/** Filled by analyticsRoute when the answer is a list, so the UI need not parse text. */
+export interface AnalyticsExtras { list?: TransactionList }
+
+const recentList = (txs: Transaction[], count: number) =>
+  [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, count);
+
 function recentTransactions(txs: Transaction[], count: number): string {
-  const recent = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, count);
+  const recent = recentList(txs, count);
   if (!recent.length) return "No transactions found yet.";
   const lines = recent.map(t =>
     `• ${t.date}  ${t.type === 'debit' ? '-' : '+'}${fmt(t.amount)}  ${t.merchant}  (${t.category})`
@@ -162,10 +174,14 @@ function topMerchants(txs: Transaction[], month: string | null): string {
   return `${prefix} top merchants:\n\n${lines.join('\n')}`;
 }
 
-function largestTransactions(txs: Transaction[], count: number, month: string | null): string {
+function largestList(txs: Transaction[], count: number, month: string | null): Transaction[] {
   let pool = debits(txs);
   if (month) pool = pool.filter(t => monthOf(t.date) === month);
-  const sorted = [...pool].sort((a, b) => b.amount - a.amount).slice(0, count);
+  return [...pool].sort((a, b) => b.amount - a.amount).slice(0, count);
+}
+
+function largestTransactions(txs: Transaction[], count: number, month: string | null): string {
+  const sorted = largestList(txs, count, month);
   if (!sorted.length) return month ? `No spending in ${monthLabel(month)}.` : "No spending data.";
   const lines = sorted.map((t, i) =>
     `${i + 1}. ${fmt(t.amount)}  ${t.merchant}  ${t.date}  (${t.category})`
@@ -539,7 +555,7 @@ function extractDate(q: string): string | null {
  * spend on food last month?") straight from the transactions. Returns null when
  * no intent matches, so the caller can hand the question to the model.
  */
-export function analyticsRoute(question: string, txs: Transaction[]): string | null {
+export function analyticsRoute(question: string, txs: Transaction[], extras: AnalyticsExtras = {}): string | null {
   const q = question.toLowerCase().trim();
 
   // ── Greetings ──────────────────────────────────────────────────────────────
@@ -565,13 +581,25 @@ export function analyticsRoute(question: string, txs: Transaction[]): string | n
 
   // ── Specific date query ────────────────────────────────────────────────────
   const dateStr = extractDate(q);
-  if (dateStr && has(q, 'on ', 'yesterday', 'today', 'that day', 'that date'))
+  if (dateStr && has(q, 'on ', 'yesterday', 'today', 'that day', 'that date')) {
+    const onDay = txs.filter(t => t.date === dateStr);
+    if (onDay.length) {
+      extras.list = { title: `${onDay.length} transaction${onDay.length !== 1 ? 's' : ''} that day, ${fmt(sum(debits(onDay)))} spent`, transactions: onDay };
+    }
     return transactionsOnDate(txs, dateStr);
+  }
 
   // ── Recent transactions ────────────────────────────────────────────────────
   const recM = q.match(/(?:last|recent|latest|show|give me|past|list)\s*(\d+)?\s*transactions?/);
   if (recM || has(q, 'recent transaction', 'last transaction', 'show transaction', 'my transaction', 'transaction history'))
-    return recentTransactions(txs, Math.min(recM?.[1] ? parseInt(recM[1]) : 5, 20));
+  {
+    const count = Math.min(recM?.[1] ? parseInt(recM[1]) : 5, 20);
+    const recent = recentList(txs, count);
+    if (recent.length) {
+      extras.list = { title: `Your last ${recent.length} transaction${recent.length !== 1 ? 's' : ''}`, transactions: recent };
+    }
+    return recentTransactions(txs, count);
+  }
 
   // ── Subscriptions ──────────────────────────────────────────────────────────
   if (has(q, 'subscription', 'recurring', 'cancel', 'membership', 'monthly charge'))
@@ -587,6 +615,13 @@ export function analyticsRoute(question: string, txs: Transaction[]): string | n
     const count = bigM?.[1] ? parseInt(bigM[1]) : 5;
     const month = has(q, 'last month', 'previous month') ? prevMonth()
       : has(q, 'this month', 'current month') ? currentMonth() : null;
+    const largest = largestList(txs, count, month);
+    if (largest.length) {
+      extras.list = {
+        title: `${month ? `In ${monthLabel(month)}, your` : 'Your'} ${largest.length} largest purchase${largest.length !== 1 ? 's' : ''}`,
+        transactions: largest,
+      };
+    }
     return largestTransactions(txs, count, month);
   }
 
@@ -734,12 +769,13 @@ export function buildFinancialContext(txs: Transaction[]): string {
 }
 
 export type ChatRoute =
-  | { kind: 'analytics'; answer: string }
+  | { kind: 'analytics'; answer: string; list?: TransactionList }
   | { kind: 'model'; context: string; fallback: string };
 
 export function routeChat(question: string, txs: Transaction[]): ChatRoute {
-  const computed = analyticsRoute(question, txs);
-  if (computed !== null && !isAdviceQuestion(question)) return { kind: 'analytics', answer: computed };
+  const extras: AnalyticsExtras = {};
+  const computed = analyticsRoute(question, txs, extras);
+  if (computed !== null && !isAdviceQuestion(question)) return { kind: 'analytics', answer: computed, list: extras.list };
   // If the model is missing or fails, the best computed answer is still shown.
   return { kind: 'model', context: buildFinancialContext(txs), fallback: computed ?? overview(txs) };
 }
@@ -794,6 +830,8 @@ export interface ChatOptions {
   history?: ChatTurn[];
   /** Told which path produced the answer, so the UI can label it. */
   onSource?: (source: AnswerSource) => void;
+  /** Called when the answer is a list of transactions; the UI shows them as rows. */
+  onList?: (list: TransactionList) => void;
 }
 
 export const chatAgentStream = async (
@@ -820,8 +858,16 @@ export const chatAgentStream = async (
     }
   }
 
-  const answer = route.kind === 'analytics' ? route.answer : route.fallback;
   options.onSource?.('analytics');
+
+  // A list is shown as rows under a one-line title, not as a block of text.
+  if (route.kind === 'analytics' && route.list && options.onList) {
+    options.onList(route.list);
+    await revealWords(route.list.title, onToken);
+    return route.list.title;
+  }
+
+  const answer = route.kind === 'analytics' ? route.answer : route.fallback;
   await revealWords(answer, onToken);
   return answer;
 };

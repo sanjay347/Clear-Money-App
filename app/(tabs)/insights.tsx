@@ -16,6 +16,7 @@ import Svg, { Rect, G } from 'react-native-svg';
 import { getTransactions } from '../../src/db/transactions';
 import { Transaction } from '../../src/types';
 import { useTheme } from '../../src/components/ThemeContext';
+import { TAB_BAR_SPACE } from '../../src/design/tokens';
 import { formatMoney } from '../../src/design/format';
 import PrivacyBadge from '../../src/components/PrivacyBadge';
 
@@ -677,6 +678,7 @@ export default function InsightsScreen() {
           </>
         )}
         <View style={{ height: 40 }} />
+        <View style={{ height: TAB_BAR_SPACE + 24 }} />
       </ScrollView>
     </View>
   );

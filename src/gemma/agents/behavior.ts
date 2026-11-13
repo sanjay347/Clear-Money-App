@@ -1,6 +1,9 @@
 import { callGemmaBase } from '../client';
 import { BehaviorAnalysisOutput } from '../../types';
 import { BEHAVIORAL_ANALYSIS_PROMPT } from '../prompts';
+import { formatMoney } from '../../design/format';
+
+const money = (n: number) => formatMoney(n, { cents: false });
 
 function extractJSONObject(raw: string): string | null {
   // Strip markdown code fences
@@ -27,7 +30,7 @@ function ruleBasedInsights(data: any): BehaviorAnalysisOutput {
         severity: pct > 45 ? 'danger' : pct > 30 ? 'warning' : 'info',
         type_label: 'Spending Pattern',
         title: `${pct}% spent on ${cat}`,
-        description: `$${amount.toFixed(0)} on ${cat} this period — ${pct}% of total spending.`,
+        description: `${money(amount)} on ${cat} this period, ${pct}% of your spending.`,
         impact_amount: amount,
         action_label: 'Review Budget',
       });
@@ -40,8 +43,8 @@ function ruleBasedInsights(data: any): BehaviorAnalysisOutput {
     patterns.push({
       severity: 'info',
       type_label: 'Subscriptions',
-      title: `$${subTotal.toFixed(0)}/mo in subscriptions`,
-      description: `You have recurring subscription charges totalling $${subTotal.toFixed(0)} this period.`,
+      title: `${money(subTotal)} in subscriptions`,
+      description: `Your subscription charges come to ${money(subTotal)} this period.`,
       impact_amount: subTotal,
       action_label: 'Review Subscriptions',
     });
@@ -53,7 +56,7 @@ function ruleBasedInsights(data: any): BehaviorAnalysisOutput {
       severity: 'info',
       type_label: 'Top Category',
       title: `Top spend: ${topCat}`,
-      description: `Your biggest expense category is ${topCat} at $${topAmt.toFixed(0)}.`,
+      description: `Your biggest expense category is ${topCat} at ${money(topAmt)}.`,
       impact_amount: topAmt,
       action_label: null,
     });

@@ -1,24 +1,64 @@
-# ClearMoney 💸
+# ClearMoney
 
-[![Gemma 4 App Video](https://img.youtube.com/vi/FaZXaY6Ym6Q/0.jpg)](https://www.youtube.com/watch?v=FaZXaY6Ym6Q)
-
-
-> **Privacy-first personal finance powered by on-device AI.**
-> Fine-tuned Gemma 4 · GGUF · llama.cpp · Unsloth · Zero cloud.
+A personal finance app for iPhone where nothing leaves the device. A fine-tuned Gemma 4 model sorts your bank transactions and answers questions about them, running on the phone itself. There is no server, no account and no analytics.
 
 <p align="center">
-  <img src="assets/icon.png" width="120" alt="ClearMoney icon" />
+  <img src="docs/screenshots/dashboard.png" width="19%" alt="Dashboard with a financial health score" />
+  <img src="docs/screenshots/insights.png" width="19%" alt="Insights with savings rate and monthly trend" />
+  <img src="docs/screenshots/transactions.png" width="19%" alt="Transaction list with category icons" />
+  <img src="docs/screenshots/chat.png" width="19%" alt="Chat with the on-device assistant" />
+  <img src="docs/screenshots/dashboard-dark.png" width="19%" alt="Dashboard in dark mode" />
 </p>
 
----
+<p align="center"><sub>Sample data. <a href="https://www.youtube.com/watch?v=FaZXaY6Ym6Q">Demo video</a> (recorded on an earlier version).</sub></p>
 
-## What is ClearMoney?
+## Results
 
-ClearMoney is a personal finance app for iOS that runs entirely on your device. Import your bank statements — PDF or a photo of a paper statement — and get a complete picture of your finances: spending breakdowns, budget tracking, AI-generated insights, month-over-month comparisons, and a conversational AI advisor.
+Transaction categorisation, measured on 198 labelled statement lines with the same rules, prompts and parser the app ships ([method and limits](eval/README.md), [full results](eval/RESULTS.md)):
 
-**There is no server. No cloud. No account. No API call. Your data never leaves your phone.**
+| System | Answered | Accuracy | National brands | Small merchants |
+|---|---|---|---|---|
+| Rules only | 52% | 52% | 94% | 12% |
+| Fine-tuned model only | 100% | 82% | 80% | 84% |
+| **Shipped pipeline (rules, then model)** | 100% | **91%** | 99% | 84% |
 
-Built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-good-hackathon).
+The rules are right 99% of the time when they match, but they match only half the lines. The model covers the rest. Neither reaches the combined score alone.
+
+## How it works
+
+1. **Import.** A statement PDF or a photo is turned into text on the phone (pdf.js or Tesseract in a hidden WebView).
+2. **Parse.** Bank-specific parsers for Chase, Bank of America, Wells Fargo and Citi extract the transactions.
+3. **Categorise.** Over a hundred merchant rules run first. Whatever they don't recognise goes to the model in batches of five, and the model's answer is validated against a fixed category list.
+4. **Store.** Everything is written to SQLite in the app's sandbox.
+5. **Ask.** Questions with one right answer ("how much did I spend at Starbucks?") are computed in code, so they are exact. Advice questions go to the model, grounded in figures computed from your data, and each answer says which of the two produced it.
+
+## Engineering worth a look
+
+- **The evaluation runs the app's own code.** Prompt building, output parsing and the batch loop live in modules with no React Native imports ([`categorizerCore.ts`](src/gemma/categorizerCore.ts), [`promptFormat.ts`](src/gemma/promptFormat.ts)), so [`eval/run.ts`](eval/run.ts) cannot drift from what ships.
+- **Decisions made by measurement.** The model's published chat template and the app's prompts use different turn markers. Both were evaluated; they scored within one row of each other, so the format stayed.
+- **One completion at a time.** The inference runtime allows a single completion per context, so every caller goes through one promise queue ([`client.ts`](src/gemma/client.ts)).
+- **A small design system.** Tokens, one icon and colour per category, one money format, and shared header and badge components ([`src/design`](src/design)).
+- **139 unit tests** and CI (typecheck, lint, tests) on every pull request.
+
+## Bugs found by testing with real statements
+
+| What the app showed | What was true | Fix |
+|---|---|---|
+| "Great job! Spending down 34%" | Spending was up 4.5%: twelve days were being compared with a full month | [#4](https://github.com/sanjay347/Gemma-4-hackathon/pull/4) |
+| A +$548.81 deposit | A $10.00 purchase: the running balance was read as the amount | [#7](https://github.com/sanjay347/Gemma-4-hackathon/pull/7) |
+| "Duplicate charge!" on every subscription | No duplicates: all-time charges were counted instead of this month's | [#4](https://github.com/sanjay347/Gemma-4-hackathon/pull/4) |
+| 75% of spending in "Other" | Card-purchase boilerplate hid the merchant from the rules and the model | [#7](https://github.com/sanjay347/Gemma-4-hackathon/pull/7) |
+| "Load failed" when importing a PDF | The PDF engine was loaded in a way current iOS rejects | [#7](https://github.com/sanjay347/Gemma-4-hackathon/pull/7) |
+
+## Limits
+
+- The test set is 198 hand-written lines, not a sample of real statements, and there is no comparison with the base model yet, so the results do not show how much the fine-tuning helped.
+- The model is a 5.3 GB download and needs a recent iPhone.
+- Four US banks are supported. Other layouts will not parse.
+- The PDF and OCR engines are downloaded on first use, then cached; they are not yet bundled in the app.
+- The project is on Expo SDK 54, which needs the build steps below on Xcode 27.
+
+Originally built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-good-hackathon). The sections below go into detail.
 
 ---
 
@@ -27,7 +67,7 @@ Built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-g
 ### Fine-tuning with Unsloth
 We fine-tuned **Gemma 4** on real-world financial transaction data using [Unsloth](https://github.com/unslothai/unsloth) — cutting training time in half and reducing GPU memory by 60% vs standard fine-tuning. The model learns to categorise transactions, detect recurring charges, and understand merchant names across all supported banks.
 
-→ Weights published on [Hugging Face](https://huggingface.co)
+→ Weights published on [Hugging Face](https://huggingface.co/sanjay3478/clearmoney-categorizer)
 
 ### GGUF Quantisation & llama.cpp Inference
 The fine-tuned model is quantised to **GGUF format** — the compressed binary standard used by llama.cpp. The 5.3 GB file is downloaded once on first launch and runs **real-time inference on an iPhone** with zero internet.
@@ -38,18 +78,6 @@ A two-stage pipeline inspired by [Cactus](https://github.com/cactus-compute/cact
 - `batchCategorize` — the fine-tuned model handles everything the rules don't recognise, five descriptions per call
 
 The model only runs on the transactions that need it, which saves time and battery. Model output is validated against the fixed category list before it is stored.
-
-### Measured Accuracy
-
-Categorisation is evaluated on 198 labelled statement lines with the same rules, prompts and parser the app ships ([method and limits](eval/README.md), [full results](eval/RESULTS.md)).
-
-| System | Answered | Accuracy | National brands | Small merchants |
-|---|---|---|---|---|
-| Rules only | 52% | 52% | 94% | 12% |
-| Fine-tuned model only | 100% | 82% | 80% | 84% |
-| **Shipped pipeline (rules, then model)** | 100% | **91%** | 99% | 84% |
-
-The rules are right 99% of the time when they match but cover half the lines; the model covers the rest. Neither stage alone reaches the combined score. The test set is small and hand-written, so treat these as indicative.
 
 ### Statement Parsing
 | Input | Engine |
@@ -90,6 +118,8 @@ Text extraction runs on the device and statement contents are never uploaded. Th
 - **Lookups are computed, not generated.** "How much did I spend at Starbucks?" has one right answer, so it is calculated from SQLite in code and is always exact.
 - **Advice comes from the model.** "Should I cancel Netflix?" goes to the fine-tuned Gemma 4, streamed token by token, grounded in a summary computed from your transactions so the figures it quotes are real.
 - Falls back to the computed answer if the model is unavailable
+- Transaction lists ("show my last 10 transactions") are shown as rows, not text
+- Every answer is labelled as calculated from your transactions or written by the model
 - Starter question chips + contextual follow-up suggestions after every answer
 - Dollar amounts highlighted inline in responses
 - **100% on-device** — nothing about your question or your data leaves the phone
@@ -114,6 +144,18 @@ Side-by-side comparison of any two months. Per-category delta badges — green w
 - **No account, no login, no tracking, no analytics**
 - Profile page: *"All data stays on your device. Zero cloud. Zero tracking."*
 - Factory Reset permanently deletes all data + model file
+
+### Design System
+- `src/design/tokens.ts` — spacing, radius and type scales
+- `src/design/categories.ts` — one icon and one colour per spending category
+- `src/design/format.ts` — one set of rules for writing money, dates and merchant names
+- Shared `ScreenHeader`, `CategoryIcon` and `PrivacyBadge` components
+- System tab bar via Expo Router native tabs: Liquid Glass on iOS 26+, and taps that respond while a screen is loading
+- Follows the phone's light or dark setting, with a crossfade when switched in Profile
+
+### Onboarding
+- Says what the one-time model download is and how big (5.3 GB) before starting it, and warns on mobile data
+- Shows download progress in gigabytes and percent, and offers a retry if it fails
 
 ### UX Polish
 - Dark / light theme toggle
@@ -237,6 +279,17 @@ npm install
 ```bash
 npx expo run:ios
 ```
+
+On Xcode 27, `expo run:ios` stops with "Can't determine id of Simulator app" (Expo SDK 54 predates the tool that replaced the Simulator app). Build with Xcode's own tools instead:
+
+```bash
+xcodebuild -workspace ios/ClearMoney.xcworkspace -scheme ClearMoney -configuration Release \
+  -destination 'generic/platform=iOS' -derivedDataPath ios/build/device-release -allowProvisioningUpdates build
+xcrun devicectl device install app --device <your-device-id> \
+  ios/build/device-release/Build/Products/Release-iphoneos/ClearMoney.app
+```
+
+A Release build bundles the JavaScript, so the phone does not need the Mac afterwards.
 
 On first launch the app will download the fine-tuned Gemma 4 GGUF model (~5.3 GB). This is a one-time download. After that the app works fully offline.
 

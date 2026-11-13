@@ -156,3 +156,36 @@ describe('chatAgentStream', () => {
     expect(answer).toContain('Netflix');
   });
 });
+
+describe('list answers', () => {
+  it('returns recent transactions as data, newest first', () => {
+    const route = routeChat('show my last 3 transactions', TXS);
+    expect(route.kind).toBe('analytics');
+    if (route.kind !== 'analytics') return;
+    expect(route.list?.title).toBe('Your last 3 transactions');
+    expect(route.list?.transactions.map(t => t.date)).toEqual(['2026-01-06', '2026-01-05', '2026-01-04']);
+  });
+
+  it('returns largest purchases as data, biggest first, debits only', () => {
+    const route = routeChat('what are my biggest 2 purchases?', TXS);
+    if (route.kind !== 'analytics') throw new Error('expected analytics');
+    expect(route.list?.transactions.map(t => t.amount)).toEqual([1200, 82.13]);
+  });
+
+  it('sends the list to the UI and reveals only the title', async () => {
+    const lists: number[] = [];
+    const answer = await chatAgentStream('show my last 3 transactions', TXS, () => {}, { onList: l => lists.push(l.transactions.length) });
+    expect(lists).toEqual([3]);
+    expect(answer).toBe('Your last 3 transactions');
+  });
+
+  it('keeps the full text answer for callers that cannot render rows', async () => {
+    const answer = await chatAgentStream('show my last 3 transactions', TXS, () => {});
+    expect(answer).toContain('Oakwood Apts');
+  });
+
+  it('has no list for ordinary answers', () => {
+    const route = routeChat('what subscriptions do I have?', TXS);
+    expect(route.kind === 'analytics' && route.list).toBeFalsy();
+  });
+});

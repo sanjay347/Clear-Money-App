@@ -4,6 +4,7 @@ import { AlertCircle, AlertTriangle, Info, TrendingUp } from 'lucide-react-nativ
 import { Insight } from '../types';
 import { useTheme } from './ThemeContext';
 import { Fonts } from './Typography';
+import { formatMoney } from '../design/format';
 
 interface InsightCardProps {
   insight: Insight;
@@ -63,7 +64,7 @@ export default function InsightCard({ insight, onPressAction }: InsightCardProps
           <View style={[styles.impactPill, { backgroundColor: severity.bg }]}>
             <TrendingUp size={11} color={severity.color} />
             <Text style={[styles.impactText, { color: severity.color }]}>
-              Impact: ${insight.impact_amount.toFixed(2)}/mo
+              {formatMoney(insight.impact_amount, { cents: false })} this period
             </Text>
           </View>
         )}

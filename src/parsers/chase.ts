@@ -1,11 +1,11 @@
-import { ParsedTransaction, cleanMerchantName, inferYear } from './shared';
+import { ParsedTransaction, cleanMerchantName, inferYear, tidy } from './shared';
 
 // Header/summary lines common in real Chase PDFs — skip these
 const SKIP_PATTERN = /^(date|description|amount|balance|total|beginning|ending|account|subtotal|payment due|statement|period|previous|minimum|credit limit|available|rewards|points|interest|apr|annual|fee|thank you|opening|closing|deposits|withdrawals|purchases|payments|other credits|new balance)/i;
 
 function parseAmount(raw: string): number | null {
   // Chase uses trailing minus for debits in some formats: "25.00-" → -25
-  let s = raw.replace(/,/g, '').trim();
+  let s = raw.replace(/[,\s]/g, ''); // also joins "- 10.00"
   if (s.endsWith('-')) s = '-' + s.slice(0, -1);
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
@@ -40,17 +40,17 @@ export const parseChaseStatement = (text: string, today: Date = new Date()): Par
 
   // Strict: requires 2+ spaces between columns (most Chase PDFs)
   const strictRe =
-    /^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s{2,}(.+?)\s{2,}(-?[\d,]+\.\d{2}-?)(?:\s+-?[\d,]+\.\d{2})?$/;
+    /^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s{2,}(.+?)\s{2,}(-?\s?[\d,]+\.\d{2}-?)(?:\s+-?[\d,]+\.\d{2})?$/;
 
   // Loose fallback: single-space separation (some PDFs after text extraction)
   const looseRe =
-    /(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.+?)\s+(-?[\d,]+\.\d{2}-?)(?:\s+-?[\d,]+\.\d{2})?$/;
+    /(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.+?)\s+(-?\s?[\d,]+\.\d{2}-?)(?:\s+-?[\d,]+\.\d{2})?$/;
 
   for (const line of lines) {
     const match = line.match(strictRe) ?? line.match(looseRe);
     if (!match) continue;
 
-    const description = match[2].trim();
+    const description = tidy(match[2]);
     if (SKIP_PATTERN.test(description) || description.length < 3) continue;
 
     const rawAmount = parseAmount(match[3]);

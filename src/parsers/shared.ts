@@ -10,13 +10,23 @@ export interface ParsedTransaction {
   merchant_clean: string;
 }
 
+/** Collapses runs of whitespace left over from PDF column spacing. */
+export const tidy = (text: string): string => text.replace(/\s+/g, ' ').trim();
+
 export const cleanMerchantName = (description: string): string => {
-  let clean = description.toUpperCase();
+  let clean = tidy(description).toUpperCase();
+
+  // Debit-card lines wrap the merchant in boilerplate:
+  //   "CARD PURCHASE WITH PIN 03/14 DOLLAR-GENERAL # DG 02 NORMAN OK CARD 9433"
+  // Strip it so the rules and the model see "DOLLAR-GENERAL # DG 02 NORMAN OK".
+  clean = clean.replace(/^(RECURRING\s+)?CARD PURCHASE( WITH PIN| RETURN)?\s+(\d{2}\/\d{2}\s+)?/, '');
+  clean = clean.replace(/\s+CARD(\s+\d{4})?$/, '');
 
   const prefixes = [
     'SQ *', 'SQ*', 'TST*', 'POS ', 'ACH ',
     'PURCHASE AUTHORIZED ON ', 'ZELLE TO ', 'VENMO*',
     'CHECKCARD ', 'DEBIT CARD ', 'ONLINE TRANSFER TO ',
+    'ZELLE PAYMENT TO ', 'ZELLE PAYMENT FROM ',
   ];
   for (const prefix of prefixes) {
     if (clean.startsWith(prefix)) {

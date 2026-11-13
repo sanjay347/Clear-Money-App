@@ -42,3 +42,15 @@ describe('categoryStyle', () => {
     expect(categoryStyle('Other')).toBe(categoryStyle('Something new'));
   });
 });
+
+describe('displayMerchant', () => {
+  const { displayMerchant } = require('../format');
+  it.each([
+    ['DOLLAR-GENERAL # DG 02 NORMAN OK', 'Dollar-General # Dg 02 Norman Ok'],
+    ['Zelle   Payment   From   Sanjay', 'Zelle Payment From Sanjay'],
+    ['Trader Joe\'s', 'Trader Joe\'s'],
+    ['IONOS INC.', 'Ionos Inc.'],
+  ])('%s → %s', (raw: string, expected: string) => {
+    expect(displayMerchant(raw)).toBe(expected);
+  });
+});
