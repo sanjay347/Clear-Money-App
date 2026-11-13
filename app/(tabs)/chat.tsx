@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Fonts } from '../../src/components/Typography';
-import { Keyboard,
+import { Easing, Keyboard,
   View, Text, StyleSheet, TextInput, Pressable, ScrollView,
-  KeyboardAvoidingView, Platform, Animated, ActivityIndicator,
+  Platform, Animated, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Sparkles } from 'lucide-react-native';
@@ -17,6 +17,8 @@ import { TAB_BAR_SPACE } from '../../src/design/tokens';
 
 // Liquid Glass exists on iOS 26 and later; older systems get a solid card.
 const GLASS = isLiquidGlassAvailable();
+// Where the input bar rests: just above the floating tab bar.
+const RESTING_BOTTOM = TAB_BAR_SPACE - 4;
 const InputBar: React.ComponentType<any> = GLASS ? GlassView : View;
 import PrivacyBadge from '../../src/components/PrivacyBadge';
 import { useFocusEffect } from '@react-navigation/native';
@@ -328,13 +330,30 @@ export default function ChatScreen() {
     elevation: 5,
   };
   const insets = useSafeAreaInsets();
-  // The tab bar is hidden while the keyboard is up, so the bar drops to just above the keys.
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  // The input bar is absolutely positioned, and padding added by a
+  // KeyboardAvoidingView does not move absolutely positioned children, so the
+  // bar stayed put and the keyboard covered it. Its position now comes straight
+  // from the keyboard's height, animated with the keyboard's own timing.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const lift = useRef(new Animated.Value(0)).current; // how far the bar is raised above its resting place
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardOpen(true));
-    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardOpen(false));
+    const move = (height: number, duration: number) => {
+      setKeyboardHeight(height);
+      Animated.timing(lift, {
+        toValue: height > 0 ? height + 8 - RESTING_BOTTOM : 0,
+        duration: duration || 250,
+        easing: Easing.bezier(0.17, 0.59, 0.4, 0.77), // close to the iOS keyboard curve
+        useNativeDriver: true,
+      }).start();
+    };
+    const show = Keyboard.addListener('keyboardWillShow', e => move(e.endCoordinates.height, e.duration));
+    const hide = Keyboard.addListener('keyboardWillHide', e => move(0, e.duration));
     return () => { show.remove(); hide.remove(); };
-  }, []);
+  }, [lift]);
+  const keyboardOpen = keyboardHeight > 0;
+  useEffect(() => {
+    if (keyboardOpen) setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, [keyboardOpen]);
   const [aiName, setAiName]         = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -424,10 +443,8 @@ export default function ChatScreen() {
   const canSend = inputText.trim().length > 0 && !isLoading;
 
   return (
-    <KeyboardAvoidingView
+    <View
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom + 8 : 20}
     >
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 12 }]}>
@@ -464,15 +481,15 @@ export default function ChatScreen() {
           />
         ))}
         {/* Room for the floating input bar and the tab bar below it */}
-        <View style={{ height: 76 + (keyboardOpen ? 8 : TAB_BAR_SPACE) }} />
+        <View style={{ height: 76 + (keyboardOpen ? keyboardHeight + 8 : TAB_BAR_SPACE) }} />
       </ScrollView>
 
       {/* Input bar: floats over the conversation. Liquid Glass where the system has it. */}
+      <Animated.View style={[styles.inputDock, { bottom: RESTING_BOTTOM, transform: [{ translateY: Animated.multiply(lift, -1) }] }]}>
       <InputBar
         {...(GLASS ? { glassEffectStyle: 'regular' as const } : {})}
         style={[
           styles.inputBar,
-          { bottom: keyboardOpen ? 8 : TAB_BAR_SPACE - 4 },
           !GLASS && { backgroundColor: colors.card, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth },
           !GLASS && inputBarShadow,
         ]}
@@ -502,7 +519,8 @@ export default function ChatScreen() {
           }
         </Pressable>
       </InputBar>
-    </KeyboardAvoidingView>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -542,7 +560,8 @@ const styles = StyleSheet.create({
   aiBubble:     { borderBottomLeftRadius: 6, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
   userText:     { color: '#FFFFFF', fontSize: 15, fontFamily: Fonts.regular, lineHeight: 23 },
 
-  inputBar:     { position: 'absolute', left: 12, right: 12, flexDirection: 'row', padding: 8, borderRadius: 30, alignItems: 'flex-end', gap: 8, overflow: 'hidden' },
+  inputDock:    { position: 'absolute', left: 12, right: 12 },
+  inputBar:     { flexDirection: 'row', padding: 8, borderRadius: 30, alignItems: 'flex-end', gap: 8, overflow: 'hidden' },
   input:        { flex: 1, borderRadius: 24, paddingHorizontal: 18, paddingTop: 13, paddingBottom: 13, fontSize: 15, fontFamily: Fonts.regular, maxHeight: 110, borderWidth: 1 },
   sendBtn:      { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
 });
