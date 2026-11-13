@@ -12,12 +12,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronDown, TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
+import { CalendarX, ChevronDown, TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import { chronologicalChange } from '../src/lib/monthComparison';
 import { useFocusEffect } from '@react-navigation/native';
 import { getTransactions } from '../src/db/transactions';
 import { Transaction } from '../src/types';
 import { useTheme } from '../src/components/ThemeContext';
+import CategoryIcon from '../src/components/CategoryIcon';
+import { formatMoney } from '../src/design/format';
+import ScreenHeader from '../src/components/ScreenHeader';
 import { Fonts } from '../src/components/Typography';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -49,24 +52,9 @@ function shortMonth(ym: string): string {
   return MONTH_NAMES[m - 1].slice(0, 3);
 }
 
-function fmt(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${n.toFixed(0)}`;
-}
-
-function fmtDelta(d: number): string {
-  const sign = d >= 0 ? '+' : '−';
-  const abs  = Math.abs(d);
-  return `${sign}${abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs.toFixed(0)}`}`;
-}
-
-const CAT_EMOJI: Record<string, string> = {
-  'Food & Dining':'🍔','Groceries':'🛒','Transportation':'🚗',
-  'Entertainment':'🎬','Health & Fitness':'💪','Shopping':'🛍️',
-  'Travel':'✈️','Bills & Utilities':'💡','Subscriptions':'📺',
-  'Coffee':'☕','Alcohol':'🍺','Income':'💰','Transfer':'🔄','Other':'📌',
-};
-const catEmoji = (c: string) => CAT_EMOJI[c] ?? '📌';
+// Whole dollars: precise enough to act on, and short enough for two columns.
+const fmt = (n: number) => formatMoney(n, { cents: false });
+const fmtDelta = (d: number) => formatMoney(d, { cents: false, sign: true });
 
 function buildCategoryTotals(txs: Transaction[]): Record<string, number> {
   const map: Record<string, number> = {};
@@ -217,13 +205,7 @@ export default function CompareScreen() {
   return (
     <SafeAreaView style={[cmp.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={cmp.header}>
-        <Pressable onPress={() => router.back()} style={cmp.backBtn}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
-        <Text style={[cmp.headerTitle, { color: colors.text }]}>Compare</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Compare" />
 
       {/* Month selectors */}
       <View style={cmp.selectors}>
@@ -247,7 +229,7 @@ export default function CompareScreen() {
 
       {!hasData ? (
         <View style={cmp.emptyState}>
-          <Text style={cmp.emptyIcon}>📊</Text>
+          <View style={cmp.emptyIcon}><CalendarX size={40} color={colors.textSecondary} /></View>
           <Text style={[cmp.emptyTitle, { color: colors.text }]}>No data to compare</Text>
           <Text style={[cmp.emptyHint, { color: colors.textSecondary }]}>
             Upload at least two months of statements to enable comparison.
@@ -306,7 +288,7 @@ export default function CompareScreen() {
                 >
                   {/* Icon + name */}
                   <View style={cmp.catLeft}>
-                    <Text style={cmp.catEmoji}>{catEmoji(row.category)}</Text>
+                    <CategoryIcon category={row.category} size={36} />
                     <View style={{ flex: 1 }}>
                       <Text style={[cmp.catName, { color: colors.text }]} numberOfLines={1}>
                         {row.category}
@@ -404,7 +386,7 @@ const cmp = StyleSheet.create({
 
   // Empty state
   emptyState:   { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 80 },
-  emptyIcon:    { fontSize: 48, marginBottom: 16 },
+  emptyIcon:    { marginBottom: 16 },
   emptyTitle:   { fontSize: 18, fontFamily: Fonts.semiBold, marginBottom: 8, textAlign: 'center' },
   emptyHint:    { fontSize: 14, fontFamily: Fonts.regular, textAlign: 'center', lineHeight: 20 },
 

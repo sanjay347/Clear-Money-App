@@ -16,7 +16,8 @@ import Svg, { Rect, G } from 'react-native-svg';
 import { getTransactions } from '../../src/db/transactions';
 import { Transaction } from '../../src/types';
 import { useTheme } from '../../src/components/ThemeContext';
-import OfflineIndicator from '../../src/components/OfflineIndicator';
+import { formatMoney } from '../../src/design/format';
+import PrivacyBadge from '../../src/components/PrivacyBadge';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -25,10 +26,8 @@ const { width: SCREEN_W } = Dimensions.get('window');
 function sum(arr: number[]) { return arr.reduce((s, v) => s + v, 0); }
 function monthOf(d: string) { return d.slice(0, 7); }
 
-function fmt(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${n.toFixed(0)}`;
-}
+// Whole dollars everywhere on this screen.
+const fmt = (n: number) => formatMoney(n, { cents: false });
 
 function pct(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
@@ -464,7 +463,7 @@ export default function InsightsScreen() {
             <GitCompareArrows size={14} color={colors.primary} />
             <Text style={[s.compareBtnText, { color: colors.primary }]}>Compare</Text>
           </TouchableOpacity>
-          <OfflineIndicator text="on‑device" />
+          <PrivacyBadge />
         </View>
       </View>
 
@@ -521,7 +520,7 @@ export default function InsightsScreen() {
                 {
                   label: 'Savings Rate',
                   value: `${a.savingsRate.toFixed(1)}%`,
-                  sub: a.savingsRate >= 20 ? '🎯 On track' : a.savingsRate >= 10 ? '⚠️ Low' : '🔴 Critical',
+                  sub: a.savingsRate >= 20 ? 'On track' : a.savingsRate >= 10 ? 'Low' : 'Critical',
                   color: a.savingsRate >= 20 ? '#3B82F6' : a.savingsRate >= 10 ? '#F59E0B' : '#EF4444',
                 },
                 {

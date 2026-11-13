@@ -7,27 +7,27 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Search, X, ChevronDown, SlidersHorizontal, ChevronRight, Check, Pencil } from 'lucide-react-native';
+import { Search, X, ChevronDown, SlidersHorizontal, ChevronRight, Check, Pencil } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import { CATEGORIES } from '../src/gemma/categorizerCore';
+import ScreenHeader, { HeaderButton } from '../src/components/ScreenHeader';
+import CategoryIcon from '../src/components/CategoryIcon';
+import { categoryStyle } from '../src/design/categories';
 import { getTransactions, updateTransactionCategory } from '../src/db/transactions';
 import { Transaction } from '../src/types';
 import { Fonts } from '../src/components/Typography';
 import { TransactionsSkeleton } from '../src/components/Skeleton';
 
 // ─── Categories ───────────────────────────────────────────────────────────────
-const ALL_CATEGORIES = [
-  'Food & Dining','Groceries','Transportation','Entertainment',
-  'Health & Fitness','Shopping','Travel','Bills & Utilities',
-  'Subscriptions','Coffee','Alcohol','Income','Transfer','Other',
-];
+// The same list the categoriser is allowed to produce. Each picker used to have
+// its own list, so recategorising could create a category no chart or budget knew.
+const ALL_CATEGORIES: readonly string[] = CATEGORIES;
 
-const CAT_EMOJI: Record<string, string> = {
-  'Food & Dining':'🍔','Groceries':'🛒','Transportation':'🚗',
-  'Entertainment':'🎬','Health & Fitness':'💪','Shopping':'🛍️',
-  'Travel':'✈️','Bills & Utilities':'💡','Subscriptions':'📺',
-  'Coffee':'☕','Alcohol':'🍺','Income':'💰','Transfer':'🔄','Other':'📌',
+// Small category glyph for filter chips: coloured when idle, white on the active chip.
+const CatGlyph = ({ category, active }: { category: string; active: boolean }) => {
+  const { icon: Icon, color } = categoryStyle(category);
+  return <Icon size={14} color={active ? '#FFFFFF' : color} strokeWidth={2.2} />;
 };
-const catEmoji = (c: string) => CAT_EMOJI[c] ?? '📌';
 
 const SORT_OPTIONS = ['Date (newest)', 'Date (oldest)', 'Amount (high)', 'Amount (low)'];
 type SortOption = typeof SORT_OPTIONS[number];
@@ -70,9 +70,7 @@ function TxRow({ tx, colors, onPress }: { tx: Transaction; colors: any; onPress:
   return (
     <Pressable onPress={handlePress}>
       <Animated.View style={[styles.txRow, { borderBottomColor: colors.border, transform: [{ scale }] }]}>
-        <View style={[styles.txAvatar, { backgroundColor: isCredit ? 'rgba(59,130,246,0.12)' : 'rgba(107,114,128,0.08)' }]}>
-          <Text style={styles.txEmoji}>{catEmoji(tx.category)}</Text>
-        </View>
+        <CategoryIcon category={tx.category} size={42} />
         <View style={styles.txDetails}>
           <Text style={[styles.txMerchant, { color: colors.text }]} numberOfLines={1}>{tx.merchant}</Text>
           <View style={styles.txMeta}>
@@ -108,7 +106,7 @@ function CategoryPickerModal({ visible, current, colors, onSelect, onClose }: {
                 style={[styles.catOption, { borderBottomColor: colors.border }]}
                 onPress={() => onSelect(cat)}
               >
-                <Text style={styles.catOptionEmoji}>{catEmoji(cat)}</Text>
+                <CategoryIcon category={cat} size={32} />
                 <Text style={[styles.catOptionText, { color: colors.text }]}>{cat}</Text>
                 {cat === current && <Check size={16} color="#3B82F6" strokeWidth={2.5} />}
               </TouchableOpacity>
@@ -134,7 +132,7 @@ function TxDetailModal({ tx, visible, onClose, colors, onEditCategory }: {
         <Pressable style={[styles.detailSheet, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
           {/* Amount hero */}
           <View style={styles.detailHero}>
-            <Text style={styles.detailEmoji}>{catEmoji(tx.category)}</Text>
+            <CategoryIcon category={tx.category} size={56} />
             <Text style={[styles.detailAmount, { color: isCredit ? '#3B82F6' : colors.text }]}>
               {isCredit ? '+' : '-'}${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </Text>
@@ -344,24 +342,20 @@ export default function TransactionsScreen() {
       />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Transactions</Text>
-          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
-            {filtered.length} of {allTxs.length}
-          </Text>
-        </View>
-        {/* Search → dedicated search screen */}
-        <Pressable onPress={() => router.push('/search' as any)} style={styles.iconBtn}>
-          <Search size={20} color={colors.text} />
-        </Pressable>
-        <Pressable onPress={() => setShowSort(true)} style={styles.iconBtn}>
-          <SlidersHorizontal size={20} color={colors.text} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Transactions"
+        subtitle={`${filtered.length} of ${allTxs.length}`}
+        right={
+          <>
+            <HeaderButton label="Search transactions" onPress={() => router.push('/search' as any)}>
+              <Search size={21} color={colors.text} />
+            </HeaderButton>
+            <HeaderButton label="Sort" onPress={() => setShowSort(true)}>
+              <SlidersHorizontal size={21} color={colors.text} />
+            </HeaderButton>
+          </>
+        }
+      />
 
       {/* Skeleton while loading */}
       {loading && <TransactionsSkeleton />}
@@ -412,7 +406,7 @@ export default function TransactionsScreen() {
               borderColor: activeCategory === cat ? '#3B82F6' : colors.border,
             }]}
             onPress={() => setActiveCategory(cat === activeCategory ? null : cat)}>
-            <Text style={styles.catEmoji}>{catEmoji(cat)}</Text>
+            <CatGlyph category={cat} active={activeCategory === cat} />
             <Text style={[styles.catChipText, { color: activeCategory === cat ? '#FFFFFF' : colors.text }]}>
               {cat}
             </Text>

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
-import { LayoutAnimation, UIManager, Platform } from 'react-native';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Appearance, LayoutAnimation, UIManager, Platform, useColorScheme } from 'react-native';
+import { getUserProfile, saveUserProfile } from '../db/transactions';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -13,7 +14,7 @@ export const Colors = {
     card: '#0E1117',
     border: '#1C2333',
     text: '#FFFFFF',
-    textSecondary: '#6B7280',
+    textSecondary: '#9099AD', // 7:1 on the background; the old #6B7280 was below the 4.5:1 minimum
     primary: '#3B82F6',
     danger: '#EF4444',
     tabBar: '#0E1117',
@@ -49,7 +50,23 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState<Theme>('light');
+  // The app follows the phone's light/dark setting until the user picks a theme
+  // in Profile. That choice is saved and wins from then on.
+  const system = useColorScheme();
+  const [override, setOverride] = useState<Theme | null>(null);
+
+  useEffect(() => {
+    getUserProfile()
+      .then(profile => {
+        if (profile.theme === 'dark' || profile.theme === 'light') {
+          setOverride(profile.theme);
+          Appearance.setColorScheme(profile.theme); // keyboards and alerts match too
+        }
+      })
+      .catch(() => { /* first launch: the profile table does not exist yet */ });
+  }, []);
+
+  const theme: Theme = override ?? (system === 'dark' ? 'dark' : 'light');
 
   const toggleTheme = () => {
     LayoutAnimation.configureNext({
@@ -58,7 +75,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       update: { type: 'easeInEaseOut' },
       delete: { type: 'easeInEaseOut', property: 'opacity' },
     });
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setOverride(next);
+    Appearance.setColorScheme(next);
+    saveUserProfile({ theme: next }).catch(() => {});
   };
 
   const colors = Colors[theme];

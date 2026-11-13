@@ -7,27 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, X, Check, Pencil } from 'lucide-react-native';
 import { useTheme } from '../src/components/ThemeContext';
+import CategoryIcon from '../src/components/CategoryIcon';
+import { CATEGORIES } from '../src/gemma/categorizerCore';
 import { searchTransactions, updateTransactionMeta, updateTransactionCategory } from '../src/db/transactions';
 import { Transaction } from '../src/types';
 import { Fonts } from '../src/components/Typography';
 
-const ALL_CATEGORIES = [
-  'Food & Dining', 'Shopping', 'Transport', 'Entertainment',
-  'Health & Fitness', 'Travel', 'Utilities', 'Housing',
-  'Personal Care', 'Education', 'Subscriptions', 'Income',
-  'Transfer', 'Other',
-];
-
-function catEmoji(cat: string): string {
-  const map: Record<string, string> = {
-    'Food & Dining': '🍽️', 'Shopping': '🛍️', 'Transport': '🚗',
-    'Entertainment': '🎬', 'Health & Fitness': '💪', 'Travel': '✈️',
-    'Utilities': '⚡', 'Housing': '🏠', 'Personal Care': '💆',
-    'Education': '📚', 'Subscriptions': '🔄', 'Income': '💰',
-    'Transfer': '↔️', 'Other': '📦',
-  };
-  return map[cat] ?? '📦';
-}
+// The same list the categoriser is allowed to produce. Each picker used to have
+// its own list, so recategorising could create a category no chart or budget knew.
+const ALL_CATEGORIES: readonly string[] = CATEGORIES;
 
 function CategoryPickerModal({ visible, current, colors, onSelect, onClose }: {
   visible: boolean;
@@ -49,7 +37,7 @@ function CategoryPickerModal({ visible, current, colors, onSelect, onClose }: {
                 style={[styles.catOption, { borderBottomColor: colors.border }]}
                 onPress={() => onSelect(cat)}
               >
-                <Text style={styles.catOptionEmoji}>{catEmoji(cat)}</Text>
+                <CategoryIcon category={cat} size={32} />
                 <Text style={[styles.catOptionText, { color: colors.text }]}>{cat}</Text>
                 {cat === current && <Check size={16} color="#3B82F6" />}
               </TouchableOpacity>
