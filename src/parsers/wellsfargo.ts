@@ -1,4 +1,4 @@
-import { ParsedTransaction, cleanMerchantName } from './shared';
+import { ParsedTransaction, cleanMerchantName, inferYear } from './shared';
 
 // Wells Fargo checking format:
 //   "1/2/2026  STARBUCKS #12345  -5.50  1,234.56"  (last col = running balance)
@@ -14,7 +14,7 @@ function parseAmount(raw: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-export const parseWellsFargoStatement = (text: string): ParsedTransaction[] => {
+export const parseWellsFargoStatement = (text: string, today: Date = new Date()): ParsedTransaction[] => {
   const transactions: ParsedTransaction[] = [];
   const seen = new Set<string>();
 
@@ -26,7 +26,6 @@ export const parseWellsFargoStatement = (text: string): ParsedTransaction[] => {
   // Format 2: MM/DD  description  amount
   const re2 = /^(\d{1,2})\/(\d{1,2})\s{2,}(.+?)\s{2,}(-?[\d,]+\.\d{2})(?:\s+-?[\d,]+\.\d{2})?$/;
 
-  const year = new Date().getFullYear().toString();
 
   for (const line of lines) {
     let m = line.match(re1);
@@ -55,6 +54,7 @@ export const parseWellsFargoStatement = (text: string): ParsedTransaction[] => {
       if (SKIP_PATTERN.test(description) || description.length < 3) continue;
       const rawAmount = parseAmount(m[4]);
       if (rawAmount === null) continue;
+      const year = inferYear(Number(m[1]), Number(m[2]), today);
       const isoDate = `${year}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
       const key = `${isoDate}|${description}|${m[4]}`;
       if (seen.has(key)) continue;

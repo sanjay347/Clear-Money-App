@@ -1,4 +1,4 @@
-import { ParsedTransaction, cleanMerchantName } from './shared';
+import { ParsedTransaction, cleanMerchantName, inferYear } from './shared';
 
 // Header/summary lines common in real Chase PDFs — skip these
 const SKIP_PATTERN = /^(date|description|amount|balance|total|beginning|ending|account|subtotal|payment due|statement|period|previous|minimum|credit limit|available|rewards|points|interest|apr|annual|fee|thank you|opening|closing|deposits|withdrawals|purchases|payments|other credits|new balance)/i;
@@ -11,17 +11,17 @@ function parseAmount(raw: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-function toIsoDate(datePart: string): string {
+function toIsoDate(datePart: string, today: Date): string {
   const parts = datePart.split('/');
   const mm = parts[0].padStart(2, '0');
   const dd = parts[1].padStart(2, '0');
   const yyyy = parts[2]
     ? parts[2].length === 2 ? `20${parts[2]}` : parts[2]
-    : new Date().getFullYear().toString();
+    : inferYear(Number(parts[0]), Number(parts[1]), today).toString();
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export const parseChaseStatement = (text: string): ParsedTransaction[] => {
+export const parseChaseStatement = (text: string, today: Date = new Date()): ParsedTransaction[] => {
   const transactions: ParsedTransaction[] = [];
   const seen = new Set<string>();
 
@@ -64,7 +64,7 @@ export const parseChaseStatement = (text: string): ParsedTransaction[] => {
     const type: 'debit' | 'credit' = rawAmount < 0 ? 'debit' : 'credit';
 
     transactions.push({
-      date: toIsoDate(match[1]),
+      date: toIsoDate(match[1], today),
       description,
       amount: Math.abs(rawAmount),
       type,

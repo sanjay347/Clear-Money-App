@@ -1,4 +1,4 @@
-import { ParsedTransaction, cleanMerchantName } from './shared';
+import { ParsedTransaction, cleanMerchantName, inferYear } from './shared';
 
 // BofA checking/savings format after pdf.js extraction:
 //   "01/02/2026  STARBUCKS #12345  SEATTLE WA  -5.50"
@@ -20,7 +20,7 @@ function toIsoDate(m: string, d: string, y: string): string {
   return `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
-export const parseBofaStatement = (text: string): ParsedTransaction[] => {
+export const parseBofaStatement = (text: string, today: Date = new Date()): ParsedTransaction[] => {
   const transactions: ParsedTransaction[] = [];
   const seen = new Set<string>();
 
@@ -58,7 +58,7 @@ export const parseBofaStatement = (text: string): ParsedTransaction[] => {
       if (SKIP_PATTERN.test(description) || description.length < 3) continue;
       const rawAmount = parseAmount(m[4]);
       if (rawAmount === null) continue;
-      const year = new Date().getFullYear().toString();
+      const year = inferYear(Number(m[1]), Number(m[2]), today).toString();
       const key = `${m[1]}/${m[2]}/${year}|${description}|${m[4]}`;
       if (seen.has(key)) continue;
       seen.add(key);
