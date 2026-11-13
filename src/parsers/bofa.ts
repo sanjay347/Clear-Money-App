@@ -1,4 +1,4 @@
-import { ParsedTransaction, cleanMerchantName, inferYear } from './shared';
+import { ParsedTransaction, cleanMerchantName, inferYear, tidy } from './shared';
 
 // BofA checking/savings format after pdf.js extraction:
 //   "01/02/2026  STARBUCKS #12345  SEATTLE WA  -5.50"
@@ -35,7 +35,7 @@ export const parseBofaStatement = (text: string, today: Date = new Date()): Pars
   for (const line of lines) {
     let m = line.match(re1);
     if (m) {
-      const description = m[4].trim();
+      const description = tidy(m[4]);
       if (SKIP_PATTERN.test(description) || description.length < 3) continue;
       const rawAmount = parseAmount(m[5]);
       if (rawAmount === null) continue;
@@ -54,7 +54,7 @@ export const parseBofaStatement = (text: string, today: Date = new Date()): Pars
 
     m = line.match(re2);
     if (m) {
-      const description = m[3].trim();
+      const description = tidy(m[3]);
       if (SKIP_PATTERN.test(description) || description.length < 3) continue;
       const rawAmount = parseAmount(m[4]);
       if (rawAmount === null) continue;

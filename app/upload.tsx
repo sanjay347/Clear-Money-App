@@ -173,7 +173,8 @@ export default function UploadScreen() {
       const ruleHits: Map<number, ReturnType<typeof tryRuleCategorize>> = new Map();
       const unknownIndexes: number[] = [];
       for (let i = 0; i < transactions.length; i++) {
-        const hit = tryRuleCategorize(transactions[i].description, transactions[i].type);
+        // Cleaned text, so boilerplate like "CARD PURCHASE 03/14" does not hide the merchant.
+        const hit = tryRuleCategorize(transactions[i].merchant_clean || transactions[i].description, transactions[i].type);
         if (hit) ruleHits.set(i, hit);
         else unknownIndexes.push(i);
       }
@@ -182,7 +183,7 @@ export default function UploadScreen() {
       if (unknownIndexes.length > 0) {
         advanceStep(5, `0 / ${unknownIndexes.length} merchants`);
         const batchResults = await batchCategorize(
-          unknownIndexes.map(i => transactions[i].description),
+          unknownIndexes.map(i => transactions[i].merchant_clean || transactions[i].description),
           (done, total) => advanceStep(5, `${done} / ${total} merchants`)
         );
         unknownIndexes.forEach((txIdx, j) => { if (batchResults[j]) aiResults.set(txIdx, batchResults[j]); });
@@ -287,9 +288,14 @@ export default function UploadScreen() {
   };
 
   const handleExtractError = (err: string) => {
-    console.error('Extract error:', err);
+    console.warn('Extract error:', err);
     setProcessingState('idle'); advanceStep(-1);
     setPdfUri(null); setImageUri(null);
+    // Without this the screen silently returned to idle and the user had no idea why.
+    Alert.alert(
+      "Couldn't read that file",
+      'Try a PDF downloaded from your bank (not a scan), or use the photo option for paper statements.',
+    );
   };
 
   const isProcessing = processingState !== 'idle';
