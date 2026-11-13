@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# evaluation: model weights and raw run output stay local
+eval/models/
+eval/runs/
