@@ -33,11 +33,11 @@ We fine-tuned **Gemma 4** on real-world financial transaction data using [Unslot
 The fine-tuned model is quantised to **GGUF format** — the compressed binary standard used by llama.cpp. The 4.7 GB file is downloaded once on first launch and runs **real-time inference on an iPhone** with zero internet.
 
 ### Cactus-Style Intelligent Routing
-A two-model pipeline inspired by [Cactus](https://github.com/cactus-compute/cactus):
-- `tryRuleCategorize` — blazing-fast rule engine for known merchants (zero latency)
-- `batchCategorize` — Gemma 4 handles unknown or ambiguous merchants
+A two-stage pipeline inspired by [Cactus](https://github.com/cactus-compute/cactus):
+- `tryRuleCategorize` — rule engine for well-known merchants (no inference)
+- `batchCategorize` — the fine-tuned model handles everything the rules don't recognise, five descriptions per call
 
-Most transactions are categorised instantly. Gemma 4 only runs on the subset that actually needs it — maximising speed and battery life.
+The model only runs on the transactions that need it, which saves time and battery. Model output is validated against the fixed category list before it is stored.
 
 ### Statement Parsing
 | Input | Engine |
@@ -45,7 +45,7 @@ Most transactions are categorised instantly. Gemma 4 only runs on the subset tha
 | Digital PDF | PDF.js (sandboxed WebView) |
 | Paper photo | Tesseract.js OCR (sandboxed WebView) |
 
-Both run entirely on-device.
+Text extraction runs on the device and statement contents are never uploaded. The PDF.js and Tesseract.js libraries are downloaded from a public CDN the first time each is used, then cached; Tesseract also fetches its OCR engine and English language data. Bundling these into the app is planned.
 
 ---
 
@@ -75,11 +75,12 @@ Both run entirely on-device.
 
 ### AI Chat
 - Conversational interface with your custom-named AI advisor
-- Powered by fine-tuned Gemma 4 via GGUF inference
+- **Lookups are computed, not generated.** "How much did I spend at Starbucks?" has one right answer, so it is calculated from SQLite in code and is always exact.
+- **Advice comes from the model.** "Should I cancel Netflix?" goes to the fine-tuned Gemma 4, streamed token by token, grounded in a summary computed from your transactions so the figures it quotes are real.
+- Falls back to the computed answer if the model is unavailable
 - Starter question chips + contextual follow-up suggestions after every answer
 - Dollar amounts highlighted inline in responses
-- Streaming token-by-token output with animated cursor
-- **100% on-device** — the AI sees your data because it IS your data
+- **100% on-device** — nothing about your question or your data leaves the phone
 
 ### Compare Mode
 Side-by-side comparison of any two months. Per-category delta badges — green where spending improved, red where it increased.
@@ -122,7 +123,7 @@ Side-by-side comparison of any two months. Per-category delta badges — green w
 | Model format | GGUF (4.7 GB, 4-bit quantised) |
 | Inference | llama.cpp-compatible on-device runtime |
 | Model hosting | Hugging Face |
-| Routing | Cactus-inspired dual-model pipeline |
+| Routing | Cactus-inspired rules-then-model pipeline |
 | PDF parsing | PDF.js (WebView sandbox) |
 | OCR | Tesseract.js (WebView sandbox) |
 | Database | expo-sqlite |
@@ -227,6 +228,16 @@ npx expo run:ios
 
 On first launch the app will download the fine-tuned Gemma 4 GGUF model (~4.7 GB). This is a one-time download. After that the app works fully offline.
 
+### Develop
+
+```bash
+npm run typecheck   # TypeScript, strict mode
+npm run lint        # ESLint (eslint-config-expo)
+npm test            # Jest unit tests
+```
+
+All three run in CI on every push and pull request. The tests cover the bank parsers, the merchant rule engine, transfer detection, model-output validation and chat routing; none of them need a device or the model file.
+
 ### Import a Statement
 
 1. Tap **+** to go to the Upload screen
@@ -245,7 +256,7 @@ On first launch the app will download the fine-tuned Gemma 4 GGUF model (~4.7 GB
 | Account required | **No** |
 | Internet after setup | **Not needed** |
 
-All transaction data lives in a local SQLite database on your device. The AI model runs inference locally. The app functions completely in airplane mode.
+All transaction data lives in a local SQLite database on your device. The AI model runs inference locally. Once the model and the parsing libraries have been downloaded, the app works in airplane mode.
 
 ---
 
@@ -259,7 +270,7 @@ This project is submitted to the following tracks:
 | **Digital Equity & Inclusivity** | Free, no account, no subscription, works for anyone |
 | **Safety & Trust** | Zero data collection, explainable categorisation, on-device only |
 | **Global Resilience** | Fully offline-first, works in low-connectivity regions |
-| **Cactus Special Tech** | Dual-model intelligent routing pipeline |
+| **Cactus Special Tech** | Rules-then-model routing pipeline |
 | **Unsloth Special Tech** | Fine-tuned Gemma 4 on financial transactions with Unsloth |
 | **llama.cpp Special Tech** | 4-bit GGUF model running on mobile hardware |
 
