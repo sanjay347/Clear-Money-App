@@ -60,12 +60,12 @@ export interface BehaviorPattern {
   title: string;
   description: string;
   impact_amount: number;
-  action_label: string;
+  action_label: string | null;
 }
 
 export interface BehaviorAnalysisOutput {
   patterns: BehaviorPattern[];
-  biggest_problem: BiggestProblem;
+  biggest_problem: BiggestProblem | null;
 }
 
 export interface CashFlowPredictionOutput {

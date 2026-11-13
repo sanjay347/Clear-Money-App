@@ -1,17 +1,33 @@
 import { MODEL_PATH } from './downloadManager';
 import * as FileSystem from 'expo-file-system/legacy';
 
-let llamaContext: any = null;
+// Minimal shape of the llama.rn context we rely on. Declared here instead of
+// importing llama.rn's types so this module still loads in Expo Go, where the
+// native module is absent.
+interface CompletionResult { text?: string; content?: string }
+interface CompletionParams {
+  prompt: string;
+  n_predict: number;
+  temperature: number;
+  top_p: number;
+  stop: string[];
+}
+export interface LlamaContextLike {
+  completion(params: CompletionParams, onToken?: (data: { token: string }) => void): Promise<CompletionResult>;
+  release(): Promise<void>;
+}
+
+let llamaContext: LlamaContextLike | null = null;
 let nativeUnavailable = false; // true when running in Expo Go / no native build
 
 // ── Completion mutex ─────────────────────────────────────────────────────────
 // llama.rn allows only one concurrent completion per context.
 // All callers (batch categorizer, behavior agent, predictor, chat) share this
 // single promise chain so completions are queued, never concurrent.
-let completionQueue: Promise<any> = Promise.resolve();
+let completionQueue: Promise<void> = Promise.resolve();
 
-function enqueue<T>(fn: () => Promise<T>): Promise<T> {
-  const next = completionQueue.then(fn, fn); // run even if previous failed
+export function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const next: Promise<T> = completionQueue.then(fn, fn); // run even if previous failed
   completionQueue = next.then(() => {}, () => {}); // keep queue alive
   return next;
 }
@@ -19,7 +35,7 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 // Lazy-import so the app doesn't crash on load if the native module is absent
 const STOP_TOKENS = ['<end_of_turn>', '<eos>', '<|im_end|>', '<start_of_turn>'];
 
-async function tryInitLlama(rawPath: string): Promise<any> {
+async function tryInitLlama(rawPath: string): Promise<LlamaContextLike | null> {
   const { initLlama } = require('llama.rn');
   if (!initLlama) throw new Error('initLlama not exported');
 
@@ -44,7 +60,7 @@ async function tryInitLlama(rawPath: string): Promise<any> {
 export const isAIAvailable = () => !nativeUnavailable;
 export const isModelLoaded = () => !!llamaContext;
 
-export const getLlamaContext = async () => {
+export const getLlamaContext = async (): Promise<LlamaContextLike | null> => {
   if (nativeUnavailable) return null;
   if (llamaContext) return llamaContext;
 
