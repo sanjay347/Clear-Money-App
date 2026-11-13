@@ -1,4 +1,25 @@
-import React, { useState } from 'react';
+/**
+ * HiddenPdfExtractor — pdf.js text extraction inside a hidden WebView.
+ *
+ * Everything is loaded from files in one cache directory, by relative path:
+ *
+ *   pdf_runner.html       the page below
+ *   pdf.min.js            pdf.js
+ *   pdf.worker.min.js     pdf.js's worker, loaded on the MAIN thread
+ *   pdf_input.js          the statement, as `window.__PDF_BASE64__ = "…"`
+ *
+ * Two things this avoids, both of which fail on current iOS with the unhelpful
+ * message "Load failed":
+ *
+ *  1. Passing the page as one big `source={{ html }}` string. pdf.js, its worker
+ *     and a base64 statement together are several megabytes, past what the
+ *     WKWebView bridge accepts.
+ *  2. Spawning a Web Worker from a blob URL. A page loaded from a string has no
+ *     origin, and WebKit refuses to start workers from it. Loading the worker
+ *     script with a normal <script> tag defines `globalThis.pdfjsWorker`, which
+ *     pdf.js detects and runs in-page instead of starting a Worker.
+ */
+import React, { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -12,13 +33,13 @@ const PDFJS_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION
 const CACHE_DIR = `${FileSystem.documentDirectory}pdfjs_cache/`;
 const MAIN_PATH = `${CACHE_DIR}pdf.min.js`;
 const WORKER_PATH = `${CACHE_DIR}pdf.worker.min.js`;
+const INPUT_PATH = `${CACHE_DIR}pdf_input.js`;
+const RUNNER_PATH = `${CACHE_DIR}pdf_runner.html`;
 
-// In-memory cache so we read from disk at most once per app session
-let cachedMain: string | null = null;
-let cachedWorker: string | null = null;
+let pdfJsReady = false;
 
 export const ensurePdfJsReady = async (): Promise<void> => {
-  if (cachedMain && cachedWorker) return;
+  if (pdfJsReady) return;
 
   await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true }).catch(() => {});
 
@@ -28,21 +49,87 @@ export const ensurePdfJsReady = async (): Promise<void> => {
   ]);
 
   // Download if missing or suspiciously small (failed partial download)
-  const MIN_SIZE = 500_000;
-  if (!mainInfo.exists || (mainInfo.size ?? 0) < MIN_SIZE) {
+  const MIN_SIZE = 250_000;
+  const size = (info: FileSystem.FileInfo) => (info.exists ? info.size ?? 0 : 0);
+  if (size(mainInfo) < MIN_SIZE) {
     await FileSystem.downloadAsync(`${PDFJS_CDN}/pdf.min.js`, MAIN_PATH);
   }
-  if (!workerInfo.exists || (workerInfo.size ?? 0) < MIN_SIZE) {
+  if (size(workerInfo) < MIN_SIZE) {
     await FileSystem.downloadAsync(`${PDFJS_CDN}/pdf.worker.min.js`, WORKER_PATH);
   }
 
-  [cachedMain, cachedWorker] = await Promise.all([
-    FileSystem.readAsStringAsync(MAIN_PATH),
-    FileSystem.readAsStringAsync(WORKER_PATH),
-  ]);
+  pdfJsReady = true;
 };
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+// The page is static: the statement arrives through pdf_input.js, so nothing
+// user-controlled is ever interpolated into this HTML.
+const RUNNER_HTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body>
+<script src="./pdf.min.js"></script>
+<script src="./pdf.worker.min.js"></script>
+<script src="./pdf_input.js"></script>
+<script>
+(async function extractText() {
+  var post = function (msg) { window.ReactNativeWebView.postMessage(msg); };
+  try {
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF engine did not load');
+    if (!window.__PDF_BASE64__) throw new Error('Statement file did not load');
+
+    // Only used if pdf.js decides it must start a real worker; with the worker
+    // script already on the page it runs in-page instead.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
+
+    var raw = atob(window.__PDF_BASE64__);
+    var data = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) data[i] = raw.charCodeAt(i);
+
+    var pdf = await pdfjsLib.getDocument({ data: data }).promise;
+
+    var pages = [];
+    for (var p = 1; p <= pdf.numPages; p++) {
+      var page = await pdf.getPage(p);
+      var content = await page.getTextContent();
+
+      // Rebuild lines by grouping items that share a Y coordinate. PDF Y runs
+      // bottom to top, so sort descending.
+      var byY = {};
+      for (var k = 0; k < content.items.length; k++) {
+        var item = content.items[k];
+        if (!item.str || !item.transform) continue;
+        var y = Math.round(item.transform[5]);
+        (byY[y] = byY[y] || []).push({ x: item.transform[4], w: item.width || 0, em: item.height || 10, str: item.str });
+      }
+      var ys = Object.keys(byY).map(Number).sort(function (a, b) { return b - a; });
+      pages.push(ys.map(function (y) {
+        // Join by the real gap between items: words in one description get a
+        // single space, separate columns get two. (Joining everything with two
+        // spaces made every word look like its own column.)
+        var items = byY[y].sort(function (a, b) { return a.x - b.x; });
+        var line = '';
+        for (var n = 0; n < items.length; n++) {
+          if (n > 0) {
+            var prev = items[n - 1];
+            var gap = items[n].x - (prev.x + prev.w);
+            line += gap > prev.em * 1.0 ? '  ' : gap > prev.em * 0.08 ? ' ' : '';
+          }
+          line += items[n].str;
+        }
+        return line;
+      }).join('\\n'));
+    }
+
+    post(JSON.stringify({ type: 'result', text: pages.join('\\n\\n') }));
+  } catch (e) {
+    post(JSON.stringify({ type: 'error', message: (e && e.message) || String(e) }));
+  }
+})();
+</script>
+</body>
+</html>`;
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface PdfExtractorProps {
   uri: string;
@@ -51,10 +138,13 @@ interface PdfExtractorProps {
 }
 
 export const HiddenPdfExtractor: React.FC<PdfExtractorProps> = ({ uri, onExtracted, onError }) => {
-  const [html, setHtml] = useState<string | null>(null);
+  const [runnerUri, setRunnerUri] = useState<string | null>(null);
+  const done = useRef(false);
 
   React.useEffect(() => {
     let cancelled = false;
+    done.current = false;
+    setRunnerUri(null);
 
     const prepare = async () => {
       try {
@@ -62,97 +152,56 @@ export const HiddenPdfExtractor: React.FC<PdfExtractorProps> = ({ uri, onExtract
           FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 }),
           ensurePdfJsReady(), // no-op after first call
         ]);
-
         if (cancelled) return;
 
-        // Inject the worker script as a blob URL so pdf.js can spawn it
-        // without any network access. JSON.stringify safely escapes the string.
-        const workerSrc = `
-          (function() {
-            var blob = new Blob([${JSON.stringify(cachedWorker)}], { type: 'application/javascript' });
-            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-          })();
-        `;
+        // Base64 contains only [A-Za-z0-9+/=], so it is safe inside a JS string literal.
+        await Promise.all([
+          FileSystem.writeAsStringAsync(INPUT_PATH, `window.__PDF_BASE64__ = "${base64Pdf}";`),
+          FileSystem.writeAsStringAsync(RUNNER_PATH, RUNNER_HTML),
+        ]);
+        if (cancelled) return;
 
-        const builtHtml = `<!DOCTYPE html>
-<html>
-<head>
-<script>${cachedMain}</script>
-</head>
-<body>
-<script>
-${workerSrc}
-
-const base64ToUint8Array = (base64) => {
-  const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr;
-};
-
-const extractText = async () => {
-  try {
-    const pdfData = base64ToUint8Array(${JSON.stringify(base64Pdf)});
-    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-
-    const pages = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-
-      // Reconstruct lines by grouping items with the same Y coordinate.
-      // Items are returned bottom-to-top in PDF coordinates, so we sort descending.
-      const byY = {};
-      for (const item of content.items) {
-        if (!item.str || !item.transform) continue;
-        const y = Math.round(item.transform[5]);
-        if (!byY[y]) byY[y] = [];
-        byY[y].push({ x: item.transform[4], str: item.str });
-      }
-
-      const sortedYs = Object.keys(byY).map(Number).sort((a, b) => b - a);
-      const pageLines = sortedYs.map(y =>
-        byY[y].sort((a, b) => a.x - b.x).map(i => i.str).join('  ')
-      );
-      pages.push(pageLines.join('\\n'));
-    }
-
-    window.ReactNativeWebView.postMessage(pages.join('\\n\\n'));
-  } catch (e) {
-    window.ReactNativeWebView.postMessage('ERROR:' + e.message);
-  }
-};
-
-extractText();
-</script>
-</body>
-</html>`;
-
-        setHtml(builtHtml);
+        // The query string makes each extraction a fresh page load.
+        setRunnerUri(`${RUNNER_PATH}?t=${Date.now()}`);
       } catch (e: any) {
-        onError(e.message ?? 'Failed to prepare PDF extractor');
+        onError(e?.message ?? 'Failed to prepare PDF extractor');
       }
     };
 
     prepare();
     return () => { cancelled = true; };
+    // onError is intentionally not a dependency: callers pass a new function each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
 
-  if (!html) return null;
+  const finish = (fn: () => void) => {
+    if (done.current) return;
+    done.current = true;
+    // The statement should not sit on disk longer than the extraction takes.
+    FileSystem.deleteAsync(INPUT_PATH, { idempotent: true }).catch(() => {});
+    fn();
+  };
+
+  if (!runnerUri) return null;
 
   return (
     <View style={{ width: 0, height: 0, opacity: 0 }}>
       <WebView
+        style={{ width: 1, height: 1 }}
         originWhitelist={['*']}
-        source={{ html }}
+        source={{ uri: runnerUri }}
+        allowingReadAccessToURL={CACHE_DIR}
+        allowFileAccess
         onMessage={event => {
-          const msg = event.nativeEvent.data;
-          if (msg.startsWith('ERROR:')) {
-            onError(msg);
-          } else {
-            onExtracted(msg);
+          try {
+            const msg = JSON.parse(event.nativeEvent.data);
+            if (msg.type === 'result') finish(() => onExtracted(msg.text ?? ''));
+            else finish(() => onError(msg.message ?? 'PDF extraction failed'));
+          } catch {
+            finish(() => onError('Invalid response from the PDF engine'));
           }
         }}
+        onError={e => finish(() => onError(e.nativeEvent.description || 'The PDF engine failed to load'))}
       />
     </View>
   );
