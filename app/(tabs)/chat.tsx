@@ -252,6 +252,7 @@ const MessageBubble = memo(({
     </Animated.View>
   );
 });
+MessageBubble.displayName = 'MessageBubble';
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
