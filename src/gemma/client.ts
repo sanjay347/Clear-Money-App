@@ -1,5 +1,10 @@
 import { MODEL_PATH } from './downloadManager';
 import * as FileSystem from 'expo-file-system/legacy';
+import {
+  STOP_TOKENS, finishCompletion, formatChat, formatPrompt, stripStopTokens, type ChatMessage,
+} from './promptFormat';
+
+export type { ChatMessage } from './promptFormat';
 
 // Minimal shape of the llama.rn context we rely on. Declared here instead of
 // importing llama.rn's types so this module still loads in Expo Go, where the
@@ -32,9 +37,7 @@ export function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-// Lazy-import so the app doesn't crash on load if the native module is absent
-const STOP_TOKENS = ['<end_of_turn>', '<eos>', '<|im_end|>', '<start_of_turn>'];
-
+// llama.rn is required lazily so the app doesn't crash on load if the native module is absent
 async function tryInitLlama(rawPath: string): Promise<LlamaContextLike | null> {
   const { initLlama } = require('llama.rn');
   if (!initLlama) throw new Error('initLlama not exported');
@@ -98,16 +101,8 @@ export const callLocalModel = async (
   if (!context) return '';
 
   try {
-    // Do NOT include <bos> — the tokenizer adds it automatically (add_bos=true for Gemma).
-    // Including it manually causes a double-BOS which confuses the model.
-    // prefill: text appended right after <start_of_turn>model\n to force JSON output mode.
     const prefill = options?.prefill ?? '';
-    let formattedPrompt: string;
-    if (systemPrompt) {
-      formattedPrompt = `<start_of_turn>user\n${systemPrompt}\n\n${prompt}<end_of_turn>\n<start_of_turn>model\n${prefill}`;
-    } else {
-      formattedPrompt = `<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>model\n${prefill}`;
-    }
+    const formattedPrompt = formatPrompt({ system: systemPrompt, user: prompt, prefill });
 
     const response = await enqueue(() => context.completion({
       prompt: formattedPrompt,
@@ -117,14 +112,8 @@ export const callLocalModel = async (
       stop: STOP_TOKENS,
     }));
 
-    let text = response.text ?? response.content ?? '';
-    for (const tok of STOP_TOKENS) text = text.split(tok)[0];
-    // Re-attach the prefill — but guard against the model repeating it
-    // (some llama.rn builds include the last prompt token in response.text)
-    const result = prefill
-      ? (text.trimStart().startsWith(prefill) ? text : prefill + text)
-      : text;
-    return result.trimEnd();
+    // Some llama.rn builds echo the last prompt token; finishCompletion guards against a doubled prefill.
+    return finishCompletion(response.text ?? response.content ?? '', prefill);
   } catch (error) {
     console.error('Error executing local model:', error);
     return '';
@@ -142,20 +131,8 @@ export const callLocalModelStreaming = async (
   const context = await getLlamaContext();
   if (!context) throw new Error('Model not loaded');
 
-  // Do NOT include <bos> — tokenizer adds it (double-BOS breaks Gemma output).
-  let formattedPrompt: string;
-  if (systemPrompt) {
-    formattedPrompt = `<start_of_turn>user\n${systemPrompt}\n\n${prompt}<end_of_turn>\n<start_of_turn>model\n`;
-  } else {
-    formattedPrompt = `<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>model\n`;
-  }
-
-  const cleanText = (s: string) => {
-    let out = s;
-    // Only strip actual end/eos tokens, not start_of_turn (which is a stop, not a strip target)
-    for (const tok of ['<end_of_turn>', '<eos>', '<|im_end|>']) out = out.split(tok)[0];
-    return out.trimEnd();
-  };
+  const formattedPrompt = formatPrompt({ system: systemPrompt, user: prompt });
+  const cleanText = stripStopTokens;
 
   let accumulated = '';
   const result = await enqueue(() => context.completion(
@@ -181,22 +158,10 @@ export const callLocalModelStreaming = async (
 // Uses the model's embedded chat template (supports system role in Gemma 4).
 // This is separate from callLocalModel so the categorizer is not affected.
 
-export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+const cleanOutput = stripStopTokens;
 
-const cleanOutput = (s: string) => {
-  let out = s;
-  for (const tok of STOP_TOKENS) out = out.split(tok)[0];
-  return out.trimEnd();
-};
-
-// Build a Gemma 4 prompt from a messages array.
-// Gemma 4 adds a dedicated <start_of_turn>system turn (unlike Gemma 2/3).
-// We do NOT include <bos> — the tokenizer prepends it automatically.
-function buildGemma4Prompt(messages: ChatMessage[]): string {
-  return messages
-    .map(m => `<start_of_turn>${m.role}\n${m.content}<end_of_turn>`)
-    .join('\n') + '\n<start_of_turn>model\n';
-}
+/** Legacy-format chat prompt. Kept as a named export for existing callers and tests. */
+export const buildGemma4Prompt = (messages: ChatMessage[]): string => formatChat(messages);
 
 export const callChatModel = async (
   messages: ChatMessage[],

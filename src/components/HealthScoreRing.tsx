@@ -41,7 +41,8 @@ export function computeHealthScore(txs: Transaction[]): {
   const stabilityPts = Math.round(Math.min(Math.max(1 - cv * 2, 0), 1) * 25);
 
   // ── 3. Subscription discipline — 20 pts ───────────────────────────────────
-  const subSpend = sum(debits(txs).filter(t => t.is_subscription || t.is_recurring));
+  // Subscriptions only. Rent and utilities are recurring but are not discretionary.
+  const subSpend = sum(debits(txs).filter(t => t.is_subscription));
   const subRatio = spent > 0 ? subSpend / spent : 0;
   const subPts   = Math.round(Math.min(Math.max(1 - subRatio / 0.15, 0), 1) * 20);
 

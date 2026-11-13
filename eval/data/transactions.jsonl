@@ -1,0 +1,198 @@
+{"description": "STARBUCKS STORE 08421 SEATTLE WA", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "MCDONALD'S F12345", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "CHIPOTLE 2291 AUSTIN TX", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "DOORDASH*THAI BASIL", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "UBER EATS PENDING", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "TRADER JOE S #552", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "WHOLEFDS MKT 10234", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "KROGER #0412", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "DUNKIN #345012 Q35", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "CHICK-FIL-A #03211", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "PANERA BREAD #601234", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "TACO BELL 030211", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "DOMINO'S 4521", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "SAFEWAY #1447", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "GRUBHUB*HOLDINGS", "type": "debit", "category": "Food & Dining", "tier": "head"}
+{"description": "INSTACART*COSTCO", "type": "debit", "category": "Food & Dining", "tier": "head", "accept": ["Shopping"]}
+{"description": "AMAZON.COM*2K4LT8QJ3 AMZN.COM/BILL WA", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "AMZN MKTP US*RT4G12AB3", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "WAL-MART #2345", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "TARGET 00012345", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "COSTCO WHSE #0482", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "BEST BUY 00004567", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "THE HOME DEPOT #6543", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "LOWES #01234*", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "IKEA EAST PALO ALTO", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "ETSY.COM*CRAFTSHOP", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "NIKE.COM", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "MACYS .COM", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "APPLE STORE #R123", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "EBAY O*12-34567-89012", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "CHEWY.COM", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "TJ MAXX #0821", "type": "debit", "category": "Shopping", "tier": "head"}
+{"description": "CVS/PHARMACY #08412", "type": "debit", "category": "Health & Fitness", "tier": "head", "accept": ["Shopping"]}
+{"description": "WALGREENS #5521", "type": "debit", "category": "Health & Fitness", "tier": "head", "accept": ["Shopping"]}
+{"description": "PLANET FITNESS 1234", "type": "debit", "category": "Health & Fitness", "tier": "head"}
+{"description": "EQUINOX #112", "type": "debit", "category": "Health & Fitness", "tier": "head"}
+{"description": "LABCORP 0012345", "type": "debit", "category": "Health & Fitness", "tier": "head"}
+{"description": "RITE AID 05412", "type": "debit", "category": "Health & Fitness", "tier": "head", "accept": ["Shopping"]}
+{"description": "YMCA OF GREATER BOSTON", "type": "debit", "category": "Health & Fitness", "tier": "head"}
+{"description": "NETFLIX.COM", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "SPOTIFY USA", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "HULU 877-8244858 CA", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "APPLE.COM/BILL", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "DISNEY PLUS", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "GOOGLE *YOUTUBEPREMIUM", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "AMAZON PRIME*2A1BC3DE4", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "ADOBE *CREATIVE CLOUD", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "OPENAI *CHATGPT SUBSCR", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "NYTIMES*NYTIMES DISC", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "DROPBOX*7HG2K1L9", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "AUDIBLE*2B4CD6EF8", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "MICROSOFT*365 PERSONAL", "type": "debit", "category": "Subscriptions", "tier": "head"}
+{"description": "UBER *TRIP", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "LYFT *RIDE SUN 9PM", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "SHELL OIL 57444721234", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "CHEVRON 0093211", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "EXXONMOBIL 47829311", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "MTA*NYCT PAYGO", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "PARKMOBILE", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "E-ZPASS REBILL", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "JIFFY LUBE #2231", "type": "debit", "category": "Transportation", "tier": "head"}
+{"description": "COMCAST CABLE COMM", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "VERIZON WRLS PYMT", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "AT&T*BILL PAYMENT", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "PG&E WEBRECURRING", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "CON EDISON OF NY", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "GEICO *AUTO", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "STATE FARM INSURANCE", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "T-MOBILE*AUTO PAY", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "NAVIENT PAYMENT", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "SPECTRUM 855-707-7328", "type": "debit", "category": "Bills & Utilities", "tier": "head"}
+{"description": "AMC THEATRES 0432", "type": "debit", "category": "Entertainment", "tier": "head"}
+{"description": "TICKETMASTER*CONCERT", "type": "debit", "category": "Entertainment", "tier": "head"}
+{"description": "STEAMGAMES.COM 4259522", "type": "debit", "category": "Entertainment", "tier": "head"}
+{"description": "PLAYSTATION NETWORK", "type": "debit", "category": "Entertainment", "tier": "head"}
+{"description": "TOPGOLF AUSTIN", "type": "debit", "category": "Entertainment", "tier": "head"}
+{"description": "REGAL CINEMAS 1321", "type": "debit", "category": "Entertainment", "tier": "head"}
+{"description": "DELTA AIR 0062345678901", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "UNITED AIRLINES 0162345", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "SOUTHWES 5261234567890", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "AIRBNB * HMABC123", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "MARRIOTT DOWNTOWN", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "HERTZ RENT-A-CAR", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "EXPEDIA 7234567890", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "HILTON GARDEN INN", "type": "debit", "category": "Travel", "tier": "head"}
+{"description": "DIRECT DEPOSIT ACME CORP PAYROLL", "type": "credit", "category": "Income", "tier": "head"}
+{"description": "GUSTO PAY 123456", "type": "credit", "category": "Income", "tier": "head"}
+{"description": "IRS TREAS 310 TAX REF", "type": "credit", "category": "Income", "tier": "head"}
+{"description": "ADP TOTALSOURCE PAYROLL", "type": "credit", "category": "Income", "tier": "head"}
+{"description": "ZELLE FROM JOHN SMITH", "type": "credit", "category": "Income", "tier": "head", "accept": ["Transfer"]}
+{"description": "ZELLE TO MARIA GARCIA", "type": "debit", "category": "Transfer", "tier": "head"}
+{"description": "VENMO PAYMENT 1023456789", "type": "debit", "category": "Transfer", "tier": "head"}
+{"description": "ONLINE TRANSFER TO SAV ...1234", "type": "debit", "category": "Transfer", "tier": "head"}
+{"description": "PAYPAL *INSTANT TRANSFER", "type": "debit", "category": "Transfer", "tier": "head"}
+{"description": "CASH APP*JANE DOE", "type": "debit", "category": "Transfer", "tier": "head"}
+{"description": "WIRE TRANSFER OUT", "type": "debit", "category": "Transfer", "tier": "head"}
+{"description": "SQ *THE LEMON TREE CAFE", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "TST* BLUE BOTTLE COFFEE", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "SQ *JOE'S PIZZA", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "TST* RAMEN TATSU-YA", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "SQ *FARMERS MARKET BREAD", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "FISHBONE SEAFOOD GRILL", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "GUSTO PIZZA CO", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "BARTACO NASHVILLE", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "LA TAQUERIA SAN FRANCISCO", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "PHO 79 RESTAURANT", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "GOLDEN DRAGON CHINESE", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "H-E-B #455", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "WEGMANS #072", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "SPROUTS FARMERS MKT", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "7-ELEVEN 34512", "type": "debit", "category": "Food & Dining", "tier": "tail", "accept": ["Shopping", "Transportation"]}
+{"description": "TOAST TAB *HOPS BREWERY", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "CAVA 0421", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "SWEETGREEN MIDTOWN", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "BOBA GUYS", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "THE CHEESECAKE FACTORY", "type": "debit", "category": "Food & Dining", "tier": "tail"}
+{"description": "SQ *VINTAGE THREADS", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "SP * GLOSSIER", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "SP BOMBAS SOCKS", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "UNIQLO USA 5TH AVE", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "SEPHORA #0412", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "ULTA #1123", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "REI #88 SEATTLE", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "BARNES & NOBLE #2231", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "MICHAELS STORES 9912", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "DOLLAR TREE", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "ACE HARDWARE", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "LULULEMON ATHLETICA", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "PAYPAL *WAYFAIR", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "ZAPPOS.COM", "type": "debit", "category": "Shopping", "tier": "tail"}
+{"description": "PATREON* MEMBERSHIP", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "SUBSTACK* NEWSLETTER", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "CRUNCHYROLL *MEMBERSHIP", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "HEADSPACE INC", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "CALM.COM", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "LINKEDIN PREMIUM", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "CLAUDE.AI SUBSCRIPTION", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "CURSOR AI POWERED IDE", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "GOOGLE *GOOGLE ONE", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "SIRIUSXM.COM/ACCT", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "THE ATHLETIC", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "NORDVPN.COM", "type": "debit", "category": "Subscriptions", "tier": "tail"}
+{"description": "SQ *CITY CAB CO", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "SUNOCO 0823456", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "WAWA 8023", "type": "debit", "category": "Transportation", "tier": "tail", "accept": ["Food & Dining"]}
+{"description": "CALTRAIN TVM", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "BIRD APP* RIDE", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "LIME*RIDE", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "DMV RENEWAL ONLINE", "type": "debit", "category": "Transportation", "tier": "tail", "accept": ["Bills & Utilities", "Other"]}
+{"description": "VALVOLINE INSTANT OIL", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "SPOTHERO PARKING", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "TESLA SUPERCHARGER", "type": "debit", "category": "Transportation", "tier": "tail"}
+{"description": "CITY OF AUSTIN UTILITIES", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "OAKWOOD APTS RENT", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "ROCKET MORTGAGE PYMT", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "WASTE MANAGEMENT WM EZPAY", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "XCEL ENERGY", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "LEMONADE INSURANCE", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "GOOGLE FI", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "MINT MOBILE", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "SOCALGAS PAYMENT", "type": "debit", "category": "Bills & Utilities", "tier": "tail"}
+{"description": "SQ *ESCAPE ROOM DOWNTOWN", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "ALAMO DRAFTHOUSE", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "NINTENDO ESHOP", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "EVENTBRITE*JAZZ NIGHT", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "BOWLERO 0412", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "MUSEUM OF MODERN ART", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "DAVE & BUSTERS #42", "type": "debit", "category": "Entertainment", "tier": "tail"}
+{"description": "SQ *SUNRISE YOGA STUDIO", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "ONE MEDICAL GROUP", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "DENTAL ASSOC OF BROOKLYN", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "DELTA DENTAL PREMIUM", "type": "debit", "category": "Health & Fitness", "tier": "tail", "accept": ["Bills & Utilities"]}
+{"description": "ORANGETHEORY FITNESS", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "CLASSPASS* MONTHLY", "type": "debit", "category": "Health & Fitness", "tier": "tail", "accept": ["Subscriptions"]}
+{"description": "ZOCDOC", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "KAISER PERMANENTE COPAY", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "VSP VISION CARE", "type": "debit", "category": "Health & Fitness", "tier": "tail"}
+{"description": "GNC #3321", "type": "debit", "category": "Health & Fitness", "tier": "tail", "accept": ["Shopping"]}
+{"description": "ALASKA AIR 0272345678", "type": "debit", "category": "Travel", "tier": "tail"}
+{"description": "JETBLUE 2792345678", "type": "debit", "category": "Travel", "tier": "tail"}
+{"description": "VRBO* HA-12AB34", "type": "debit", "category": "Travel", "tier": "tail"}
+{"description": "AMTRAK .COM 123456", "type": "debit", "category": "Travel", "tier": "tail", "accept": ["Transportation"]}
+{"description": "TSA PRECHECK ENROLLMENT", "type": "debit", "category": "Travel", "tier": "tail"}
+{"description": "LA QUINTA INN", "type": "debit", "category": "Travel", "tier": "tail"}
+{"description": "TURO INC.* TRIP", "type": "debit", "category": "Travel", "tier": "tail", "accept": ["Transportation"]}
+{"description": "STRIPE TRANSFER PAYOUT", "type": "credit", "category": "Income", "tier": "tail", "accept": ["Transfer"]}
+{"description": "INTEREST PAYMENT", "type": "credit", "category": "Income", "tier": "tail"}
+{"description": "UPWORK ESCROW PAYOUT", "type": "credit", "category": "Income", "tier": "tail"}
+{"description": "VENMO CASHOUT", "type": "credit", "category": "Transfer", "tier": "tail", "accept": ["Income"]}
+{"description": "ROBINHOOD DEBITS", "type": "debit", "category": "Transfer", "tier": "tail", "accept": ["Other"]}
+{"description": "APPLE CASH SENT", "type": "debit", "category": "Transfer", "tier": "tail"}
+{"description": "ATM WITHDRAWAL 00123 MAIN ST", "type": "debit", "category": "Other", "tier": "tail", "accept": ["Transfer"]}
+{"description": "CHECK #1042", "type": "debit", "category": "Other", "tier": "tail"}
+{"description": "OVERDRAFT FEE", "type": "debit", "category": "Other", "tier": "tail", "accept": ["Bills & Utilities"]}
+{"description": "FOREIGN TRANSACTION FEE", "type": "debit", "category": "Other", "tier": "tail"}
+{"description": "USPS PO 1234567890", "type": "debit", "category": "Other", "tier": "tail", "accept": ["Shopping"]}
+{"description": "GOFUNDME *DONATION", "type": "debit", "category": "Other", "tier": "tail"}
+{"description": "RED CROSS DONATION", "type": "debit", "category": "Other", "tier": "tail"}
